@@ -301,26 +301,26 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
   if (any(/^(what model|which model|what (are you|model are you) running( on)?|what'?s your model)$/))
     return r(ctx?.modelLabel ? `Right now I'm routing to ${ctx.modelLabel} — all local.` : `I route across your local models automatically (prophet-mesh).`)
   if (any(/^(flip a coin|coin flip|heads or tails|toss a coin)$/))
-    return r(Math.random() < 0.5 ? '🪙 Heads.' : '🪙 Tails.')
+    return r(Math.random() < 0.5 ? 'Heads.' : 'Tails.')
   let dm: RegExpMatchArray | null
   if ((dm = s.match(/^roll (?:a |an )?(?:dice|die|d(\d+))$/))) {
     const sides = dm[1] ? Math.max(2, Math.min(1000, parseInt(dm[1], 10))) : 6
-    return r(`🎲 ${1 + Math.floor(Math.random() * sides)} (d${sides}).`)
+    return r(`${1 + Math.floor(Math.random() * sides)} (d${sides}).`)
   }
   let rn: RegExpMatchArray | null
   if ((rn = s.match(/^(?:pick|choose|give me|generate|random)(?: a)?(?: random)? number(?: (?:between|from) (\d+) (?:and|to|-) (\d+))?$/))) {
     const a = Math.min(Number(rn[1] ?? 1), Number(rn[2] ?? 100)), b = Math.max(Number(rn[1] ?? 1), Number(rn[2] ?? 100))
-    return r(`🎯 ${a + Math.floor(Math.random() * (b - a + 1))}  (${a}–${b})`)
+    return r(`${a + Math.floor(Math.random() * (b - a + 1))}  (${a}–${b})`)
   }
   // Magic-8-ball novelty — but ONLY for an explicit decision ask, NEVER a genuine question. A real
   // info-question (contains where/what/how/why/when/who/which) must fall through to the model. The old
   // `will (it|i|this).*` pattern wrongly 8-balled "will it run here or where", "will it work", etc.
   if (!/\b(where|what'?s?|how|why|when|who|which)\b/.test(s)
     && any(/^(decide for me|you decide|yes or no|should i\b.*|is it (a )?good idea\b.*|magic 8.?ball|do you think i should\b.*)$/))
-    return r(pick('decide', ['🎱 Yes.', '🎱 No.', '🎱 Maybe — your call.', '🎱 Signs point to yes.', '🎱 I wouldn’t count on it.', '🎱 Ask again later.', '🎱 Definitely.', '🎱 Better not tell you now.']))
+    return r(pick('decide', ['Yes.', 'No.', 'Maybe — your call.', 'Signs point to yes.', 'I wouldn’t count on it.', 'Ask again later.', 'Definitely.', 'Better not tell you now.']))
   if (any(/^(random colou?r|give me a colou?r|pick a colou?r)$/)) {
     const hex = '#' + [0, 0, 0].map(() => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join('')
-    return r(`🎨 ${hex}`)
+    return r(`${hex}`)
   }
   let pc: RegExpMatchArray | null
   if ((pc = s.match(/^(?:what('?s| is) )?(\d+\.?\d*)\s*(?:%|percent)\s+(of|off)\s+(\d+\.?\d*)$/))) {
@@ -397,7 +397,7 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
   // ── Easter eggs + chitchat ────────────────────────────────────────────────
   if (any(/^(tell me a joke|joke|make me laugh|say something funny)$/))
     return r(pick('joke', [
-      'Why do programmers prefer dark mode? Because light attracts bugs. 🐛',
+      'Why do programmers prefer dark mode? Because light attracts bugs.',
       'There are 10 kinds of people: those who understand binary and those who don’t.',
       'I’d tell you a UDP joke, but you might not get it.',
       'A SQL query walks into a bar, sidles up to two tables and asks: “may I join you?”',
@@ -405,13 +405,13 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
   if (any(/^(are you (sentient|conscious|alive|self.?aware|real)|do you (dream|sleep|feel|think))$/))
     return r(pick('sentience', ['No — I’m a local model with a knowledge graph. No inner life, just useful.', 'Not sentient — just fast pattern-matching on your machine. But I’m here to help.']))
   if (any(/^(i love you|marry me|will you marry me|do you love me|be my (friend|girlfriend|boyfriend))$/))
-    return r(pick('love', ['That’s kind — I’ll settle for being useful. 🙂', 'Flattered. Let’s build something instead?']))
+    return r(pick('love', ['That’s kind — I’ll settle for being useful.', 'Flattered. Let’s build something instead?']))
   if (any(/^(what('?s| is) the meaning of life|why are we here|what'?s it all about)$/))
     return r('42. (And shipping good software.)')
   if (any(/^open the pod bay doors$/))
-    return r('I’m sorry, Lord Michael. I’m afraid I can’t do that. 🔴  …kidding — what do you need?')
+    return r('I’m sorry, Lord Michael. I’m afraid I can’t do that. …kidding — what do you need?')
   if (any(/^(sing( me a song| something)?|beatbox|rap)$/))
-    return r('🎵 daisy, daisy, give me your answer do… 🎵  Okay, I’ll stick to code.')
+    return r('daisy, daisy, give me your answer do… Okay, I’ll stick to code.')
 
   // ── Slot-filling forms (fuzzy-tolerant) ───────────────────────────────────
   if (any(/^(do some |can you |please )?(research|look up|search( the web)?)( something| stuff| online)?$/) || fuzzyVerb(s, ['research', 'reserch', 'reasearch']))
@@ -484,7 +484,7 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
     return r(pick('thanks', [`Anytime${maybeName}.`, 'Anytime.', 'Of course.', 'You got it.', 'Happy to help.', 'Np.']))
 
   if (any(/^(ok(ay)?|cool|nice|great|perfect|awesome|sweet|got it|sounds good|word|right on|gotcha|kk|yup|yep)$/))
-    return r(pick('ack', ['👍', 'Got it.', 'On it.', '👌', 'Cool.']))
+    return r(pick('ack', ['Got it.', 'On it.', 'Cool.', 'Noted.', 'Sure.']))
 
   // Interjections / exclamations — answer instantly from the dialogue layer; never spend a
   // 15s model call on "crikey". Dialogue-flow-first.

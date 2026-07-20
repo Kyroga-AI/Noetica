@@ -2206,8 +2206,8 @@ function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, project
 function PlaceholderSurface({ title, description, badge }: { title: string; description: string; badge?: string }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] text-2xl">
-        {title.includes('Holo') ? '🪪' : '🏪'}
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden><rect x="3.5" y="5" width="17" height="14" rx="2" stroke="currentColor" strokeWidth="1.6"/><path d="M3.5 9.5h17" stroke="currentColor" strokeWidth="1.6"/><path d="M7 13.5h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
       </div>
       <div>
         <div className="flex items-center justify-center gap-2">
