@@ -51,12 +51,16 @@ type UtilityRailProps = {
   inScopeFiles?: string[]
   toolActivity?: { id: string; name: string; target: string }[]
   fileChanges?: { id: string; path: string; content: string }[]
+  // Tune (model + generation controls) lives in the resizable inspector; expose a visible toggle here so
+  // it isn't buried in the View menu.
+  onToggleInspector?: () => void
+  inspectorOpen?: boolean
 }
 
 const RAIL_MIN = 240
 const RAIL_MAX = 760
 
-export function UtilityRail({ activePanel, onSelect, inspectMessage = null, liveTurns = [], isLive = false, onCommitLive, onClearLive, inScopeFiles = [], toolActivity = [], fileChanges = [] }: UtilityRailProps) {
+export function UtilityRail({ activePanel, onSelect, inspectMessage = null, liveTurns = [], isLive = false, onCommitLive, onClearLive, inScopeFiles = [], toolActivity = [], fileChanges = [], onToggleInspector, inspectorOpen = false }: UtilityRailProps) {
   const ctx: ContextData = { inScopeFiles, toolActivity, fileChanges }
   const live: LiveData = { turns: liveTurns, isLive, onCommit: onCommitLive, onClear: onClearLive }
   const [width, setWidth] = useState(288)
@@ -116,6 +120,18 @@ export function UtilityRail({ activePanel, onSelect, inspectMessage = null, live
             </button>
           ))}
         </nav>
+        {/* Tune — model + generation controls (the inspector). A visible toggle so it isn't menu-only. */}
+        {onToggleInspector && (
+          <button
+            onClick={onToggleInspector}
+            title="Tune — model & generation"
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+              inspectorOpen ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-secondary)]'
+            }`}
+          >
+            <IconTune />
+          </button>
+        )}
       </aside>
     </>
   )
@@ -145,6 +161,9 @@ function IconAnswer() {
 }
 function IconLive() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><rect x="2.5" y="6.5" width="1.5" height="3" rx="0.75" fill="currentColor"/><rect x="5.5" y="4" width="1.5" height="8" rx="0.75" fill="currentColor"/><rect x="8.5" y="5.5" width="1.5" height="5" rx="0.75" fill="currentColor"/><rect x="11.5" y="6.5" width="1.5" height="3" rx="0.75" fill="currentColor"/></svg>
+}
+function IconTune() {
+  return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M3 4h6M11 4h2M3 8h2M7 8h6M3 12h8M13 12h0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><circle cx="10" cy="4" r="1.4" stroke="currentColor" strokeWidth="1.3"/><circle cx="6" cy="8" r="1.4" stroke="currentColor" strokeWidth="1.3"/><circle cx="12" cy="12" r="1.4" stroke="currentColor" strokeWidth="1.3"/></svg>
 }
 function IconGraph() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="3" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="3" cy="12" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="13" cy="12" r="2" stroke="currentColor" strokeWidth="1.3"/><path d="M8 5v2M8 7L3.5 10M8 7l4.5 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>

@@ -47,6 +47,7 @@ import { OperateSurface } from '@/components/surfaces/OperateSurface'
 import { DispatchSurface } from '@/components/surfaces/DispatchSurface'
 import { RoutinesSurface } from '@/components/surfaces/RoutinesSurface'
 import { ActionsSurface } from '@/components/surfaces/ActionsSurface'
+import { AcademySurface } from '@/components/surfaces/AcademySurface'
 import { TuneSurface } from '@/components/surfaces/TuneSurface'
 import { HolographMeSurface } from '@/components/surfaces/HolographMeSurface'
 import { MarketplaceSurface } from '@/components/surfaces/MarketplaceSurface'
@@ -127,6 +128,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   dispatch:     'Chat',
   routines:     'Chat',
   actions:      'Chat',
+  academy:      'Chat',
   govern:       'Chat',
   tune:         'Chat',
   holographme:  'Chat',
@@ -737,6 +739,19 @@ export function AppShell() {
     }
     window.addEventListener('noetica:run-to-chat', h)
     return () => window.removeEventListener('noetica:run-to-chat', h)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Ask bridge: surfaces (e.g. Academy "Learn →") send a prompt straight into chat + jump there.
+  useEffect(() => {
+    const h = (e: Event) => {
+      const prompt = (e as CustomEvent<string>).detail
+      if (!prompt) return
+      setActiveSurface('chat')
+      setTimeout(() => void handleSend(prompt, []), 50)
+    }
+    window.addEventListener('noetica:ask', h)
+    return () => window.removeEventListener('noetica:ask', h)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1916,6 +1931,8 @@ export function AppShell() {
             inScopeFiles={inScopeFiles}
             toolActivity={toolActivity}
             fileChanges={fileChanges}
+            onToggleInspector={() => setInspectorVisible((v) => !v)}
+            inspectorOpen={inspectorVisible}
           />
         )}
       </main>
@@ -2162,6 +2179,7 @@ function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, project
   if (activeSurface === 'dispatch')     return <DispatchSurface />
   if (activeSurface === 'routines')     return <RoutinesSurface />
   if (activeSurface === 'actions')      return <ActionsSurface />
+  if (activeSurface === 'academy')      return <AcademySurface />
   if (activeSurface === 'holographme')  return <HolographMeSurface />
   if (activeSurface === 'marketplace')  return <MarketplaceSurface />
 
