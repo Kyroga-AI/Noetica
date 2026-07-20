@@ -475,7 +475,7 @@ export function Sidebar({
                     <svg key="a" width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden><path d="M7 1.5l4.5 2.6v5.8L7 12.5 2.5 9.9V4.1L7 1.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M2.6 4.2L7 6.8l4.4-2.6M7 6.8v5.6" stroke="currentColor" strokeWidth="1.1"/></svg>],
                   ['docs', 'Files',
                     <svg key="f" width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden><path d="M3 1.5h5L11 4.5V12H3V1.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M8 1.5V4.5h3" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>],
-                  ['operate', 'Background tasks',
+                  ['dispatch', 'Background tasks',
                     <svg key="t" width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden><circle cx="7" cy="7" r="5.2" stroke="currentColor" strokeWidth="1.2"/><path d="M7 4v3l2 1.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>],
                 ] as const).map(([surface, label, icon]) => (
                   <button
@@ -486,6 +486,15 @@ export function Sidebar({
                     <span className="text-[var(--color-text-tertiary)]">{icon}</span>{label}
                   </button>
                 ))}
+                {/* Customize sidebar — opens the command-center reorder/hide modal (handled by the rail). */}
+                <button
+                  onClick={() => { window.dispatchEvent(new Event('noetica:customize-sidebar')); setQuickOpen(false) }}
+                  className="mt-1 flex w-full items-center gap-2.5 border-t border-[var(--color-border-tertiary)] px-3 py-1.5 text-left text-[12px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]"
+                >
+                  <span className="text-[var(--color-text-tertiary)]">
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden><path d="M2 4h6M2 10h3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="10.5" cy="4" r="1.6" stroke="currentColor" strokeWidth="1.2"/><circle cx="8" cy="10" r="1.6" stroke="currentColor" strokeWidth="1.2"/></svg>
+                  </span>Customize sidebar
+                </button>
               </div>
             </>
           )}
