@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import { MAX_ATTACHMENTS } from '@/lib/types/attachment'
 import { readFilesAsAttachments, openNativeFilePicker } from '@/lib/attachments/reader'
@@ -31,6 +31,11 @@ type InputAreaProps = {
   onSelectProject?: (id: string) => void
   onFanout?: (content: string, attachments: PendingAttachment[]) => Promise<void>
   onStop?: () => void
+  // Dictation — speech-to-text into THIS composer (edit, then send). Live conversation is a separate
+  // top-bar control. `dictating` reflects the shared voice hook's listening state (dictate, not live).
+  onStartDictation?: () => void
+  onStopDictation?: () => void
+  dictating?: boolean
   disabled?: boolean
   fanoutModelCount?: number
   workspaceMode: WorkspaceMode
@@ -75,6 +80,7 @@ function AttachmentChip({ attachment, onRemove }: { attachment: PendingAttachmen
 
 export function InputArea({
   onSend, onFanout, onStop,
+  onStartDictation, onStopDictation, dictating = false,
   disabled = false,
   fanoutModelCount = 0,
   workspaceMode, onWorkspaceModeChange,
@@ -121,6 +127,20 @@ export function InputArea({
     : thinkingBudget <= 5000 ? 'Low'
     : thinkingBudget <= 15000 ? 'Medium'
     : 'High'
+
+  // Dictation lands here: the shared voice hook transcribes, AppShell fires `noetica:dictate`, and the
+  // text is appended to the composer so you can edit before sending (not auto-sent — that's the Claude
+  // dictate behaviour, distinct from live conversation).
+  useEffect(() => {
+    const h = (e: Event) => {
+      const text = (e as CustomEvent<string>).detail?.trim()
+      if (!text) return
+      setContent((c) => (c.trim() ? `${c.trimEnd()} ${text}` : text))
+      requestAnimationFrame(() => textareaRef.current?.focus())
+    }
+    window.addEventListener('noetica:dictate', h as EventListener)
+    return () => window.removeEventListener('noetica:dictate', h as EventListener)
+  }, [])
 
   function toggleTool(key: string) {
     setSelectedTools((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key])
@@ -555,6 +575,27 @@ export function InputArea({
               <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </button>
+
+          {/* Dictate — speech-to-text into the composer (edit, then send). Live conversation is separate,
+              at the top. */}
+          {onStartDictation && (
+            <button
+              type="button"
+              onClick={() => (dictating ? onStopDictation?.() : onStartDictation())}
+              title={dictating ? 'Listening… click to stop' : 'Dictate — speak, and it types into the box'}
+              aria-label="Dictate"
+              style={{ border: 'none', background: 'none', outline: 'none' }}
+              className={`relative flex h-7 w-7 items-center justify-center rounded-md transition ${
+                dictating ? 'text-[#f43f5e]' : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]'
+              }`}
+            >
+              {dictating && <span className="absolute inset-0 rounded-md bg-[#fda4af] opacity-30 animate-ping" />}
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <rect x="6" y="1" width="4" height="8" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M3 8a5 5 0 0 0 10 0M8 13v2M6 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+          )}
 
           {/* More options — reveals the secondary controls (tools, web, scope, mode, length) */}
           <button
