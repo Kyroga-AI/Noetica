@@ -436,7 +436,7 @@ export function GraphRailPanel() {
           ))}
           <button onClick={() => { setPathMode((v) => !v); setPathFrom(''); if (pathMode) setPathIds([]) }} title="Pick two nodes to find the shortest path between them"
             className={`ml-auto rounded-full border px-2 py-0.5 transition ${pathMode ? 'border-[#f59e0b] text-[#f59e0b]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
-            {pathMode ? (pathFrom ? 'pick target…' : 'pick source…') : '🔗 path'}
+            {pathMode ? (pathFrom ? 'pick target…' : 'pick source…') : 'path'}
           </button>
           {pathIds.length > 0 && <button onClick={() => { setPathIds([]); setPathExplain(null) }} className="text-[#f59e0b]">clear</button>}
         </div>
@@ -461,15 +461,15 @@ export function GraphRailPanel() {
           ))}
           <button onClick={() => { setShowThemes((v) => !v); if (!showThemes && communities.length === 0) void loadThemes() }} title="GraphRAG: LLM-summarized themes + ask across everything"
             className={`ml-auto rounded-full border px-2 py-0.5 transition ${showThemes ? 'border-[#7c3aed] text-[#7c3aed]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
-            🧭 themes
+            themes
           </button>
           <button onClick={() => { setShowTimeline((v) => !v); if (!showTimeline && !timeline) void loadTimeline() }} title="How your knowledge grew over time"
             className={`rounded-full border px-2 py-0.5 transition ${showTimeline ? 'border-[#0891b2] text-[#0891b2]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
-            📈 timeline
+            timeline
           </button>
           <button onClick={() => { setShowTools((v) => !v); if (!showTools && anomalies.length === 0 && contradictions.length === 0) void loadTools() }} title="Anomalies, contradictions, entity merges, inferred facts"
             className={`rounded-full border px-2 py-0.5 transition ${showTools ? 'border-[#ef4444] text-[#ef4444]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
-            🛠 tools
+            tools
           </button>
         </div>
         {showTools && (

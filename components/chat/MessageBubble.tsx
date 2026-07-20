@@ -424,6 +424,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
   const displayContent = useRevealedContent(message.content, {
     tokensPerSec: settings.typingTokensPerSec ?? 0,
     animate,
+    id: message.id,
   })
 
   function handleCopy() {
