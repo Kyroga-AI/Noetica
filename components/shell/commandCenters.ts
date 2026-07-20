@@ -137,6 +137,7 @@ export const NAV_SURFACES: NavSurface[] = [
 
   // ── Data & DataOps — search (local lampstand vs platform sherlock), enrichment, graph ──
   { id: 'academy',    label: 'Academy',     center: 'data', tier: 'primary',   maturity: 'beta' }, // the Alexandrian learning surface: mastery path + SRS practice + AI tutor
+  { id: 'guardian',   label: 'Guardian',    center: 'data', tier: 'secondary', maturity: 'beta' }, // parent/admin cockpit over the learner — progress, due, mastered; rosters + coach hand-off next
   { id: 'library',    label: 'Library',     center: 'data', tier: 'primary',   maturity: 'live' },
   { id: 'artifacts',  label: 'Artifacts',   center: 'data', tier: 'primary',   maturity: 'live' },
   { id: 'workspace',  label: 'Project Files', center: 'data', tier: 'secondary', maturity: 'live' },

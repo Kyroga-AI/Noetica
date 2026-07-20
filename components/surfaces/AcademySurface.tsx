@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { amUrl } from '@/lib/tauri/bridge'
+import { AudioOverviewPlayer } from '@/components/chat/AudioOverviewPlayer'
 
 // Academy — the door to the Alexandrian education moat. Anthropic (a Socratic AI tutor) meets
 // OpenCourseWare (the verified canon) meets homeschool (a mastery path + spaced practice) — all local,
@@ -9,7 +10,7 @@ import { amUrl } from '@/lib/tauri/bridge'
 // quiet marginal label; no gamification chartjunk. Wired to the real backend (/api/learn/path,
 // /api/learning/srs/*). v1 = Learn (path) + Practice (flashcards).
 
-type Tab = 'learn' | 'practice' | 'reference' | 'progress'
+type Tab = 'learn' | 'practice' | 'lecture' | 'reference' | 'progress'
 interface PathNode { id: string; name: string; level: string; subject: string; prereq: string[] }
 interface LearningPath { goal: string; resolved: string; path: PathNode[]; levels: string[] }
 interface DueCard { id: string; task: string; abstraction?: string; steps?: string[] }
@@ -23,6 +24,25 @@ const LEVEL_META: Record<string, { label: string; dot: string }> = {
 }
 
 function ask(prompt: string) { window.dispatchEvent(new CustomEvent('noetica:ask', { detail: prompt })) }
+function downloadJson(obj: unknown, filename: string) {
+  const href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }))
+  const a = document.createElement('a'); a.href = href; a.download = filename
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(href)
+}
+
+// Lecture — a spoken, two-voice overview of the learner's material, with call-in (reuses the proven
+// AudioOverviewPlayer). Generated on-device. The NotebookLM-style "listen to it" mode.
+function LectureTab() {
+  return (
+    <div className="mx-auto max-w-2xl px-6 py-6">
+      <p className="mb-3 text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
+        A spoken lecture on your material — two voices, hands-free. Play it, or call in to ask a question
+        mid-lecture. Generated on-device from what you’ve added.
+      </p>
+      <AudioOverviewPlayer />
+    </div>
+  )
+}
 
 export function AcademySurface() {
   const [tab, setTab] = useState<Tab>('learn')
@@ -35,7 +55,7 @@ export function AcademySurface() {
           learning never leaves this device.
         </p>
         <div className="mt-3 flex gap-1">
-          {(['learn', 'practice', 'reference', 'progress'] as Tab[]).map((t) => (
+          {(['learn', 'practice', 'lecture', 'reference', 'progress'] as Tab[]).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`rounded-lg px-3 py-1 text-[12.5px] font-medium capitalize transition ${
                 tab === t ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
@@ -46,7 +66,7 @@ export function AcademySurface() {
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === 'learn' ? <LearnTab /> : tab === 'practice' ? <PracticeTab /> : tab === 'reference' ? <ReferenceTab /> : <ProgressTab />}
+        {tab === 'learn' ? <LearnTab /> : tab === 'practice' ? <PracticeTab /> : tab === 'lecture' ? <LectureTab /> : tab === 'reference' ? <ReferenceTab /> : <ProgressTab />}
       </div>
     </div>
   )
@@ -193,15 +213,22 @@ function PracticeTab() {
           Show answer
         </button>
       ) : (
-        <div className="mt-4 grid grid-cols-4 gap-2">
-          {GRADES.map(({ g, label, color }) => (
-            <button key={g} onClick={() => void grade(g)}
-              className="rounded-xl border border-[var(--color-border-secondary)] py-2 text-[12.5px] font-medium transition hover:bg-[var(--color-background-secondary)]"
-              style={{ color }}>
-              {label}
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="mt-4 grid grid-cols-4 gap-2">
+            {GRADES.map(({ g, label, color }) => (
+              <button key={g} onClick={() => void grade(g)}
+                className="rounded-xl border border-[var(--color-border-secondary)] py-2 text-[12.5px] font-medium transition hover:bg-[var(--color-background-secondary)]"
+                style={{ color }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {/* Remediation: struggling with this card → have the tutor re-teach it from first principles. */}
+          <button onClick={() => ask(`I keep getting this wrong: "${card.task}". Re-teach it from first principles — the intuition, a worked example, then check me with one question.`)}
+            className="mt-2 w-full text-center text-[11.5px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-accent)]">
+            Re-teach this with the tutor →
+          </button>
+        </>
       )}
     </div>
   )
@@ -317,6 +344,9 @@ function ProgressTab() {
   )
   return (
     <div className="mx-auto max-w-3xl px-6 py-5 space-y-4">
+      {/* Sovereign transcript: seal the local record into an offline-verifiable credential you own and can
+          prove anywhere — the cloud+local seam (private record → portable proof). */}
+      <SealTranscript record={[brief, text].filter(Boolean).join('\n\n')} lens={data?.artifact?.lens} />
       {brief && (
         <div className="rounded-xl border border-[var(--color-border-secondary)] p-4">
           <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Where you are</div>
@@ -329,6 +359,35 @@ function ProgressTab() {
           <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-text-secondary)]">{text}</p>
         </div>
       )}
+    </div>
+  )
+}
+
+function SealTranscript({ record, lens }: { record: string; lens?: string }) {
+  const [busy, setBusy] = useState(false)
+  const [flash, setFlash] = useState('')
+  async function seal() {
+    setBusy(true); setFlash('')
+    try {
+      const r = await fetch(amUrl('/api/proof/export'), {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ runId: `transcript-${lens ?? 'record'}`, answer: record, model: 'local-academy', timestamp: new Date().toISOString(), citations: [] }),
+      })
+      if (!r.ok) throw new Error('seal failed')
+      downloadJson(await r.json(), `noetica-transcript-${lens ?? 'record'}.json`)
+      setFlash('Sealed ✓')
+    } catch { setFlash('Failed') } finally { setBusy(false); setTimeout(() => setFlash(''), 2000) }
+  }
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3.5 py-2.5">
+      <div className="min-w-0 pr-3">
+        <div className="text-[12.5px] font-medium text-[var(--color-text-primary)]">Sovereign transcript</div>
+        <div className="text-[11px] text-[var(--color-text-tertiary)]">Seal this record into an offline-verifiable credential — yours to keep and prove anywhere.</div>
+      </div>
+      <button onClick={() => void seal()} disabled={busy}
+        className="shrink-0 rounded-lg bg-[var(--color-text-primary)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-background-primary)] transition disabled:opacity-50">
+        {busy ? 'Sealing…' : flash || 'Seal transcript'}
+      </button>
     </div>
   )
 }
