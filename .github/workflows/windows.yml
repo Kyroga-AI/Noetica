@@ -1,0 +1,113 @@
+name: windows-build
+
+# Cuts a Windows installer (NSIS .exe) for Noetica.
+#
+# Dispatch-only, no repo secrets: it produces an UNSIGNED installer artifact you can download
+# and hand to a Windows user. (Authenticode signing is a separate cert story — until then
+# Windows SmartScreen will warn on first run; "More info → Run anyway" installs it.)
+#
+# Why a Windows runner: the app is a Tauri (Rust) shell + Next static frontend + a bun-compiled
+# agent-machine sidecar. The frontend + agent-machine binary cross-compile fine, but the Tauri
+# shell (MSVC + WebView2) must be built ON Windows. WebView2 is bootstrapped by the NSIS
+# installer at install time (downloadBootstrapper — evergreen on Win10/11).
+#
+# Minimum viable bundle = agent-machine sidecar + the shell. Everything else degrades:
+#   • opencog-sidecar (Python) is never bundled here.
+#   • the Rust embed/operator sidecars + Ollama are OPT-IN (bundle_sidecars=true); the agent
+#     machine otherwise provisions its own runtime into ~/.noetica/runtime at first boot.
+#   • inject-am-sidecar-config.mjs only wires externalBin entries whose binary is on disk, so a
+#     missing best-effort sidecar drops out cleanly instead of aborting the build.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_sidecars:
+        description: "Also build Rust sidecars + bundle Ollama (slower; best-effort)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Install agent-machine deps
+        run: npm --prefix agent-machine ci
+
+      - name: Build agent-machine → Windows binary (bun --compile)
+        run: npm run agent-machine:build:binary:windows
+
+      # ── best-effort native sidecars (opt-in) — the app runs without them ──────────────────
+      - name: Build Rust sidecars (best-effort)
+        if: ${{ inputs.bundle_sidecars }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          cargo build --release --manifest-path embed-sidecar/Cargo.toml    --target x86_64-pc-windows-msvc
+          cargo build --release --manifest-path operator-sidecar/Cargo.toml --target x86_64-pc-windows-msvc
+          for b in noetica-embed noetica-operator; do
+            for cand in \
+              "target/x86_64-pc-windows-msvc/release/$b.exe" \
+              "${b#noetica-}-sidecar/target/x86_64-pc-windows-msvc/release/$b.exe"; do
+              if [ -f "$cand" ]; then
+                cp "$cand" "src-tauri/binaries/$b-x86_64-pc-windows-msvc.exe"
+                echo "staged $b from $cand"; break
+              fi
+            done
+          done
+
+      - name: Bundle Ollama (best-effort)
+        if: ${{ inputs.bundle_sidecars }}
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ver = "0.30.8"
+          $url = "https://github.com/ollama/ollama/releases/download/v$ver/ollama-windows-amd64.zip"
+          Invoke-WebRequest -Uri $url -OutFile ollama.zip
+          Expand-Archive -Path ollama.zip -DestinationPath ollama-win -Force
+          $exe = Get-ChildItem -Recurse ollama-win -Filter ollama.exe | Select-Object -First 1
+          Copy-Item $exe.FullName "src-tauri/binaries/ollama-x86_64-pc-windows-msvc.exe"
+
+      - name: Inject externalBin (only binaries present on disk)
+        run: node scripts/inject-am-sidecar-config.mjs
+
+      - name: Build Tauri Windows installer (NSIS)
+        # tauri:build runs tauri:icon first; `-- --bundles nsis` overrides the macOS-only
+        # targets in tauri.conf.json. beforeBuildCommand (build:static) runs the Next export
+        # via cross-env so the Unix inline-env works under Windows too.
+        run: npm run tauri:build -- --bundles nsis
+
+      - name: Restore tauri.conf.json
+        if: always()
+        run: node scripts/inject-am-sidecar-config.mjs --restore
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: noetica-windows-nsis
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
