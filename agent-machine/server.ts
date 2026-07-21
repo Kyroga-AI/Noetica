@@ -4423,6 +4423,24 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     msgTokens -= estimateTokens(String(removed?.content ?? ''))
   }
 
+  // Per-segment context-window composition — surfaced on the 'done' event so the cockpit's
+  // ContextWindow panel can show "what's in the agent's context" (like Claude Code's panel).
+  // Groups the named system-prompt parts into stable display buckets; conversation = trimmed history.
+  const contextComposition = {
+    model,
+    window: MODEL_CONTEXT_TOKENS,
+    budget: TOKEN_BUDGET,
+    segments: {
+      system: estimateTokens(ipiPrefix + basePrompt + dateLine + selfContext + moatContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix + knowledgeDirective + webDirective + thinkDirective),
+      memory: estimateTokens(memoryContext + episodeContext),
+      grounding: estimateTokens(canonGroundContext + fabricContext + groundingContext + qaContext),
+      graph: estimateTokens(graphContext),
+      skills: estimateTokens(skillsContext),
+      goals: estimateTokens(goalContext + learnerContext),
+      conversation: msgTokens,
+    },
+  }
+
   // ── Right-size the KV cache to the ACTUAL prompt (CPU latency fix) ───────────
   // num_ctx drives both KV-cache allocation and per-token prompt-eval cost. On a
   // CPU box, always allocating the model's full 32K window for a focused 2–3K RAG
@@ -5310,6 +5328,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         cost_usd: costUsd,
         tokens_egressed: egressed,
         value_judgment: valueJudgment,
+        context: contextComposition,
         agent_machine: true,
         agent_machine_version: VERSION,
         ...(reasoningGen ? { reasoning_run: reasoningGen.run, reasoning_receipt: reasoningGen.receipt } : {}),
