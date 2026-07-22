@@ -19,7 +19,7 @@
  *   MMLU_MODEL        answer model (default llama3.2:3b)
  *   MMLU_PER_SUBJECT  questions per subject (default 5; 0 = all)
  *   MMLU_K            retrieved chunks injected in the brain arm (default 4)
- *   MMLU_ARMS         comma list of arms to run (default "baseline,brain"); `refine` = AgentKB student→teacher trajectory-critique loop (Gap B); `tier` = tiered-ontology grounding (KKO upper→general→specific, PR #312)
+ *   MMLU_CLOUD_MODEL  Anthropic model for the cloud_* arms (default claude-opus-4-8; needs ANTHROPIC_API_KEY)\n *   MMLU_ARMS         comma list of arms to run (default "baseline,brain"); `refine` = AgentKB student→teacher trajectory-critique loop (Gap B); `tier` = tiered-ontology grounding (KKO upper→general→specific, PR #312)
  *   MMLU_SUBJECTS     comma list to restrict subjects (default: all brain-ready)
  *   MMLU_MAX_CHUNKS   per-field memory cap on loaded chunks (default 150000)
  *   MMLU_SEED         shuffle seed for the per-subject sample (default time-based)
@@ -564,6 +564,45 @@ async function ask(prompt: string, temperature = 0): Promise<string> {
   return ''                                                  // genuinely empty after retries → abstain
 }
 
+// ── ST026 cloud arms: the SAME exam, answered by a cloud-scale model ──────────────────────────
+// Anthropic-native /v1/messages (NOT the OpenAI-compat path): current Claude models reject
+// temperature/top_p (400), so the cloud client sends none. Omitting `thinking` runs WITHOUT
+// thinking on Opus 4.7/4.8 (fair vs the local no-think arms); NB on Sonnet 5 omission means
+// ADAPTIVE thinking — flag it in the board notes if MMLU_CLOUD_MODEL is swapped to Sonnet.
+const CLOUD_MODEL = process.env['MMLU_CLOUD_MODEL'] || 'claude-opus-4-8'
+const CLOUD_URL = (process.env['ANTHROPIC_BASE_URL'] || 'https://api.anthropic.com').replace(/\/$/, '')
+if (ARMS.some((a) => a.startsWith('cloud_')) && !process.env['ANTHROPIC_API_KEY'] && !process.env['ANTHROPIC_AUTH_TOKEN']) {
+  console.error('cloud_* arms requested but neither ANTHROPIC_API_KEY nor ANTHROPIC_AUTH_TOKEN is set — refusing to run a board that would silently abstain every cloud answer')
+  process.exit(1)
+}
+async function askCloud(prompt: string): Promise<string> {
+  const key = process.env['ANTHROPIC_API_KEY'] || ''
+  const oat = process.env['ANTHROPIC_AUTH_TOKEN'] || ''
+  const headers: Record<string, string> = { 'content-type': 'application/json', 'anthropic-version': '2023-06-01' }
+  if (key) headers['x-api-key'] = key
+  else { headers['authorization'] = `Bearer ${oat}`; headers['anthropic-beta'] = 'oauth-2025-04-20' }
+  const tries = Math.max(1, ASK_RETRIES)
+  for (let attempt = 0; attempt < tries; attempt++) {
+    try {
+      const res = await fetch(`${CLOUD_URL}/v1/messages`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ model: CLOUD_MODEL, max_tokens: MAXTOK, system: SYS,
+          messages: [{ role: 'user', content: prompt }] }),
+        signal: AbortSignal.timeout(TIMEOUT),
+      })
+      if (res.status === 429 || res.status === 529 || res.status >= 500) {   // rate/overload — honor retry-after
+        const wait = Number(res.headers.get('retry-after')) * 1000 || 1500 * (attempt + 1)
+        await new Promise((r) => setTimeout(r, wait)); continue
+      }
+      const d = await res.json() as { content?: Array<{ type: string; text?: string }> }
+      const out = (d.content ?? []).filter((b) => b.type === 'text').map((b) => b.text ?? '').join('').trim()
+      if (out) return out
+    } catch { /* network/timeout — fall through to retry */ }
+    if (attempt < tries - 1) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))
+  }
+  return ''                                                  // abstain, same contract as ask()
+}
+
 // askVote — self-consistency: sample K answers at temperature, return the MAJORITY letter.
 // The single biggest universal MMLU lift in the literature, and it launders positional A-bias out
 // of the answer (a bias toward "A" washes out across diverse samples). Unaffordable on CPU; cheap
@@ -987,7 +1026,7 @@ async function main() {
       // chunks land in context (default 8); MMLU_PER_SHOT how many each query contributes (default 3).
       const slugHints = SUBJECT_SLUG_HINT[subject] ?? new Map<string, number>()
       let context = ''
-      if (ARMS.includes('brain') || ARMS.includes('route')) {
+      if (ARMS.includes('brain') || ARMS.includes('route') || ARMS.includes('cloud_brain')) {
         const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K, [], slugHints)
         context = hits.map((h, n) => `[${n + 1}] ${h.text.slice(0, 500)}`).join('\n\n')
         row['sources'] = hits.map((h) => `${h.slug}:${h.material}`)
@@ -1340,6 +1379,10 @@ async function main() {
           const first = await ask(`${base}${ANSWER_RULE}`)
           letter = extractLetter(await ask(`A student proposed this solution:\n${first}\n\nQuestion:\n${base}\n\nCheck each reasoning step for an error. If any step is wrong, correct it and give the right answer; otherwise confirm.${ANSWER_RULE}`))
           mode = 'reflect'
+        } else if (arm === 'cloud_baseline') {    // ST026: cloud-scale model, closed book — IDENTICAL prompt to baseline
+          letter = extractLetter(await askCloud(`${base}${ANSWER_RULE}`)); mode = CLOUD_MODEL
+        } else if (arm === 'cloud_brain') {        // ST026: cloud-scale model + the SAME brain retrieval context as `brain`
+          letter = extractLetter(await askCloud(brainPrompt)); mode = CLOUD_MODEL
         } else {                                  // baseline (closed book)
           letter = extractLetter(await ask(`${base}${ANSWER_RULE}`))
         }
