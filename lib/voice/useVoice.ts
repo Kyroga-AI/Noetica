@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
 import { isTauri, invokeTauri } from '@/lib/tauri/bridge'
-import { getMicStream, MicPermissionDeniedError } from '@/lib/voice/micStream'
+import { getMicStream, MicPermissionDeniedError, queryMicPermission } from '@/lib/voice/micStream'
 
 export type VoiceState = 'idle' | 'listening' | 'processing' | 'wake-listening'
 
@@ -15,7 +15,7 @@ type SR = {
   lang: string
   onstart: (() => void) | null
   onresult: ((e: { results: { [i: number]: { [i: number]: { transcript: string } } } }) => void) | null
-  onerror: (() => void) | null
+  onerror: ((e?: { error?: string }) => void) | null
   onend: (() => void) | null
   start(): void
   stop(): void
@@ -150,12 +150,24 @@ export function useVoice(onTranscript: (text: string) => void) {
     let retryDelay = 500
     let stopped = false
 
-    function startWakeListener() {
+    async function startWakeListener() {
       if (!SpeechRecognitionCtor || stopped) return
+      // Never (re)start the background listener when the mic grant is already denied:
+      // in embedded panes that hard-block the mic (e.g. a host app's browser pane),
+      // every rec.start() re-fires the host's permission banner, so a retry loop
+      // reads as the whole UI flashing. Denied → park until the setting is toggled.
+      if ((await queryMicPermission()) === 'denied') {
+        stopped = true
+        if (stateRef.current === 'wake-listening') setState('idle')
+        return
+      }
+      if (stopped) return // effect may have been cleaned up during the await
       const rec = new SpeechRecognitionCtor()
       rec.continuous = true
       rec.interimResults = true
       rec.lang = 'en-US'
+      // Distinguish fatal permission errors (stop for good) from transient ones (back off).
+      let hadError = false
 
       rec.onresult = (e) => {
         const results = e.results
@@ -168,15 +180,26 @@ export function useVoice(onTranscript: (text: string) => void) {
           startListening()
         }
       }
-      rec.onerror = () => {
-        // Back off exponentially on errors (permission denied, network, etc.) — cap at 30s.
+      rec.onerror = (e) => {
+        hadError = true
+        const code = e?.error
+        if (code === 'not-allowed' || code === 'service-not-allowed' || code === 'audio-capture') {
+          // Mic is blocked or absent here — retrying would just re-prompt forever.
+          stopped = true
+          return
+        }
+        // Transient (network, no-speech, aborted…): back off exponentially — cap at 30s.
         retryDelay = Math.min(retryDelay * 2, 30_000)
       }
       rec.onend = () => {
-        if (!stopped && (stateRef.current === 'idle' || stateRef.current === 'wake-listening')) {
-          setTimeout(startWakeListener, retryDelay)
-          // Reset backoff on a clean end (not an error).
-          if (retryDelay < 2000) retryDelay = 500
+        if (stopped) {
+          if (stateRef.current === 'wake-listening') setState('idle')
+          return
+        }
+        if (stateRef.current === 'idle' || stateRef.current === 'wake-listening') {
+          // Reset backoff only after a clean session; an errored end keeps the grown delay.
+          if (!hadError) retryDelay = 500
+          setTimeout(() => void startWakeListener(), retryDelay)
         }
       }
       wakeListenerRef.current = rec
@@ -184,7 +207,7 @@ export function useVoice(onTranscript: (text: string) => void) {
       rec.start()
     }
 
-    startWakeListener()
+    void startWakeListener()
 
     return () => {
       stopped = true
