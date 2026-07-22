@@ -1,9 +1,131 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useIdentity, initialOf } from '@/lib/useIdentity'
+import { amUrl } from '@/lib/tauri/bridge'
 
 function isValidEmail(v: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) }
+
+interface FederationStatus {
+  enabled: boolean
+  baseKey?: string
+  writerKey?: string
+  writable?: boolean
+  pumped?: number
+  lastError?: string
+}
+
+/** Org knowledge federation — the ONE-TIME opt-in. Paste the org's federation key; after
+ *  the org admin admits the machine key shown here, local knowledge percolates to the org
+ *  graph automatically (nothing leaves before approval). */
+function FederationSection() {
+  const [status, setStatus] = useState<FederationStatus | null>(null)
+  const [keyInput, setKeyInput] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  const refresh = () => {
+    fetch(amUrl('/api/federation/status'), { signal: AbortSignal.timeout(3000) })
+      .then((r) => r.json())
+      .then((d: FederationStatus) => setStatus(d))
+      .catch(() => setStatus(null))
+  }
+  useEffect(() => { refresh(); const t = setInterval(refresh, 15_000); return () => clearInterval(t) }, [])
+
+  async function join() {
+    setBusy(true); setError('')
+    try {
+      const r = await fetch(amUrl('/api/federation/optin'), {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ baseKey: keyInput.trim() }), signal: AbortSignal.timeout(15_000),
+      })
+      const d = (await r.json()) as { error?: string }
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`)
+      setKeyInput(''); refresh()
+    } catch (e) { setError(e instanceof Error ? e.message : 'could not join') }
+    finally { setBusy(false) }
+  }
+
+  async function leave() {
+    setBusy(true)
+    try { await fetch(amUrl('/api/federation/optout'), { method: 'POST', signal: AbortSignal.timeout(10_000) }); refresh() }
+    finally { setBusy(false) }
+  }
+
+  function copyWriterKey() {
+    if (!status?.writerKey) return
+    void navigator.clipboard?.writeText(status.writerKey).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
+  return (
+    <div>
+      <div className="text-sm font-semibold text-[var(--color-text-primary)]">Org knowledge federation</div>
+      <div className="mt-3 rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-4">
+        {status === null && (
+          <div className="text-[12px] text-[var(--color-text-tertiary)]">
+            Agent Machine offline — start it to manage federation.
+          </div>
+        )}
+        {status !== null && !status.enabled && (
+          <div className="space-y-3">
+            <p className="text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
+              Join your organization&apos;s shared knowledge graph. Opt in once with the org&apos;s
+              federation key; after your admin approves this machine, what you learn locally flows
+              to the org automatically. Nothing leaves before approval.
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder="Org federation key (64 hex characters)"
+                className="min-w-0 flex-1 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-border-primary)]"
+              />
+              <button
+                onClick={() => void join()}
+                disabled={busy || !/^[0-9a-f]{64}$/i.test(keyInput.trim())}
+                className="rounded-xl bg-[var(--color-text-primary)] px-4 py-2 text-[12px] font-semibold text-[var(--color-background-primary)] disabled:opacity-40"
+              >
+                {busy ? 'Joining…' : 'Join'}
+              </button>
+            </div>
+            {error && <div className="text-[11px] text-red-500">{error}</div>}
+          </div>
+        )}
+        {status?.enabled && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-[12px] text-[var(--color-text-primary)]">
+                {status.writable
+                  ? <>Connected — <span className="font-semibold">sharing knowledge with the org</span>{typeof status.pumped === 'number' ? ` (${status.pumped} items shared)` : ''}</>
+                  : <>Joined — <span className="font-semibold">waiting for admin approval</span>. Nothing is shared yet.</>}
+              </div>
+              <span className={`h-2 w-2 shrink-0 rounded-full ${status.writable ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+            </div>
+            {!status.writable && status.writerKey && (
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-3">
+                <div className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Send this machine key to your org admin</div>
+                <div className="mt-1 flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-text-tertiary)]">{status.writerKey}</code>
+                  <button onClick={copyWriterKey} className="shrink-0 rounded-lg border border-[var(--color-border-tertiary)] px-2 py-1 text-[10px] text-[var(--color-text-secondary)]">
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {status.lastError && <div className="text-[11px] text-amber-500">{status.lastError}</div>}
+            <button onClick={() => void leave()} disabled={busy}
+              className="text-[11px] text-[var(--color-text-tertiary)] underline-offset-2 hover:underline disabled:opacity-40">
+              Leave federation (stops sharing; already-shared knowledge stays with the org)
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export function OrgPanel() {
   const me = useIdentity()
@@ -107,6 +229,9 @@ export function OrgPanel() {
           </button>
         )}
       </div>
+
+      {/* Org knowledge federation — the one-time opt-in to the org's shared graph */}
+      <FederationSection />
 
       {/* Plan */}
       <div>

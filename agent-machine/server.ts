@@ -88,6 +88,7 @@ import { grlLoop, grlEnabled, grlActive, grlExplore, retrievalActionOf, graphSta
 import { meshEnabled, publishTransitions } from './lib/grl-federation.js'
 let _grlMeshTick = 0 // counts GRL observes; every 25th flushes redacted signals to the opt-in mesh
 import { handlePeerSync, syncAllPeers, graphSyncEnabled } from './lib/http-sync.js'
+import { initFederation, federationStatus, optIn as federationOptIn, optOut as federationOptOut } from './lib/federation-participant.js'
 import { getGraphReplica, captureGraphIntoReplica, applyReplicaToGraph, saveGraphReplica, type GraphLike } from './lib/graph-replica.js'
 // Adapter: the @socioprophet/hellgraph facade → the engine-agnostic GraphLike the CRDT replica binds to.
 const graphLike = (): GraphLike => {
@@ -6625,6 +6626,38 @@ const server = http.createServer((req, res) => {
       return
     }
     res.writeHead(405); res.end()
+    return
+  }
+
+  // Org-federation participant (the one-time opt-in; see lib/federation-participant.ts)
+  if (url.pathname === '/api/federation/status' && req.method === 'GET') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify(federationStatus()))
+    return
+  }
+  if (url.pathname === '/api/federation/optin' && req.method === 'POST') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const p = JSON.parse(await readBody(req)) as { baseKey?: string }
+        const out = await federationOptIn(String(p.baseKey ?? ''))
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: true, ...out, hint: 'give writerKey to the org admin to admit' }))
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String((e as Error)?.message ?? e) }))
+      }
+    })()
+    return
+  }
+  if (url.pathname === '/api/federation/optout' && req.method === 'POST') {
+    setCORSHeaders(res)
+    void (async () => {
+      await federationOptOut()
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ ok: true, enabled: false }))
+    })()
     return
   }
 
@@ -18461,6 +18494,9 @@ server.listen(PORT, BIND_HOST, () => {
   console.log(`[noetica-am] ${summarizePreset(_cfg)}`)
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://${BIND_HOST}:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
+
+  // Org federation: rejoin a previously opted-in org graph (no-op otherwise). Fire-and-forget.
+  void initFederation()
 
   // Routines scheduler — fire due routines on a 60s tick while the sidecar is alive. v1: routines only
   // run while the app is open (a persistent daemon is a later step). Fire-and-forget; never blocks boot.
