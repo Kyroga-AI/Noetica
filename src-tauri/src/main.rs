@@ -717,6 +717,15 @@ fn main() {
                         let _ = w.hide();
                     }
                 });
+                // Windows: force the main window visible + focused on launch. Without this a
+                // fresh install can come up with the window hidden (and the tray icon is easy to
+                // miss), which reads as "the app won't open" even though it started fine.
+                #[cfg(target_os = "windows")]
+                {
+                    let _ = win.show();
+                    let _ = win.unminimize();
+                    let _ = win.set_focus();
+                }
             }
 
             // ── Menu-bar (tray) icon — Show / Quit; left-click toggles the window ──
@@ -728,20 +737,31 @@ fn main() {
                 let quit = MenuItemBuilder::with_id("tray_quit", "Quit Noetica").build(app)?;
                 let tray_menu = MenuBuilder::new(app).items(&[&show, &quit]).build()?;
                 let mut tray_builder = TrayIconBuilder::with_id("noetica-tray")
-                    .icon_as_template(true)
                     .tooltip("Noetica")
                     .menu(&tray_menu)
                     .show_menu_on_left_click(false);
-                // Dedicated ℵ₀ glyph (aleph-null — the cardinality the wordmark N₀ always
-                // gestured at). A single bold mark reads at menu-bar scale where the full
-                // app icon turns to mush; embedded so there's no resource-path dependency.
-                // Falls back to the window icon if the bytes ever fail to decode.
-                match tauri::image::Image::from_bytes(include_bytes!("../icons/tray-aleph-template.png")) {
-                    Ok(icon) => { tray_builder = tray_builder.icon(icon); }
-                    Err(_) => {
-                        if let Some(icon) = app.default_window_icon().cloned() {
-                            tray_builder = tray_builder.icon(icon);  // no unwrap — never panic on startup
+                // macOS menu bar: a dedicated ℵ₀ glyph (aleph-null — the cardinality the wordmark
+                // N₀ always gestured at) in TEMPLATE mode, which auto-inverts for light/dark. A
+                // single bold mark reads at menu-bar scale where the full app icon turns to mush;
+                // embedded so there's no resource-path dependency. Falls back to the window icon.
+                #[cfg(target_os = "macos")]
+                {
+                    tray_builder = tray_builder.icon_as_template(true);
+                    match tauri::image::Image::from_bytes(include_bytes!("../icons/tray-aleph-template.png")) {
+                        Ok(icon) => { tray_builder = tray_builder.icon(icon); }
+                        Err(_) => {
+                            if let Some(icon) = app.default_window_icon().cloned() {
+                                tray_builder = tray_builder.icon(icon);  // no unwrap — never panic on startup
+                            }
                         }
+                    }
+                }
+                // Windows/Linux: template mode isn't supported and the monochrome glyph renders as
+                // a near-invisible black blob in the tray, so use the full-color app icon instead.
+                #[cfg(not(target_os = "macos"))]
+                {
+                    if let Some(icon) = app.default_window_icon().cloned() {
+                        tray_builder = tray_builder.icon(icon);
                     }
                 }
                 let _tray = tray_builder

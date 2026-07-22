@@ -308,6 +308,87 @@ jobs:
           find src-tauri/target/release/bundle \( -name "*.deb" -o -name "*.rpm" \) \
             | xargs gh release upload "$TAG" --clobber
 
+  release-windows:
+    runs-on: windows-latest
+    needs: [release-macos]
+    # Builds the Windows NSIS installer (.exe) for stable + nightly and uploads it to the same
+    # release the macOS job creates — so every nightly cuts mac + linux + windows together.
+    # Unsigned: Windows SmartScreen warns once on first run ("More info → Run anyway").
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with:
+          toolchain: stable
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix agent-machine ci
+
+      - name: Materialize Tauri icon
+        run: npm run tauri:icon
+
+      - name: Install bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      - name: Build agent-machine binary (windows x64)
+        run: npm run agent-machine:build:binary:windows
+
+      - name: Build noetica-embed sidecar (windows x64)
+        # Injected externalBin — build it so Tauri resolves binaries/noetica-embed for the windows
+        # target (the committed macOS binary would otherwise leave the required .exe missing).
+        shell: bash
+        run: |
+          cargo build --release --manifest-path embed-sidecar/Cargo.toml --target x86_64-pc-windows-msvc
+          cp embed-sidecar/target/x86_64-pc-windows-msvc/release/noetica-embed.exe src-tauri/binaries/noetica-embed-x86_64-pc-windows-msvc.exe
+
+      - name: Build noetica-operator sidecar (windows x64)
+        # Pure-Rust tract → cross-compiles cleanly; injected externalBin alongside noetica-embed.
+        shell: bash
+        run: |
+          cargo build --release --manifest-path operator-sidecar/Cargo.toml --target x86_64-pc-windows-msvc
+          cp operator-sidecar/target/x86_64-pc-windows-msvc/release/noetica-operator.exe src-tauri/binaries/noetica-operator-x86_64-pc-windows-msvc.exe
+
+      - name: Download Ollama sidecar (windows)
+        shell: pwsh
+        run: |
+          $ver = "0.30.8"
+          Invoke-WebRequest "https://github.com/ollama/ollama/releases/download/v$ver/ollama-windows-amd64.zip" -OutFile ollama.zip
+          Expand-Archive ollama.zip -DestinationPath ollama-win -Force
+          Copy-Item (Get-ChildItem -Recurse ollama-win -Filter ollama.exe | Select-Object -First 1).FullName src-tauri/binaries/ollama-x86_64-pc-windows-msvc.exe
+
+      - name: Inject sidecar externalBin into tauri.conf.json
+        run: node scripts/inject-am-sidecar-config.mjs
+
+      - name: Build Tauri (nsis)
+        env:
+          NOETICA_STATIC_EXPORT: "1"
+        run: npx tauri build --bundles nsis
+
+      - name: Upload Windows installer to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=${{ github.ref_name }}
+          find src-tauri/target/release/bundle/nsis -name "*.exe" | xargs gh release upload "$TAG" --clobber
+
   update-cask:
     needs: release-macos
     runs-on: ubuntu-latest
