@@ -138,7 +138,7 @@ function McpStatusChip({ status }: { status: string }) {
 }
 
 type AddForm = { name: string; transport: McpTransport; url: string; command: string; args: string; env: string }
-const EMPTY_FORM: AddForm = { name: '', transport: 'sse', url: '', command: '', args: '', env: '' }
+const EMPTY_FORM: AddForm = { name: '', transport: 'http', url: '', command: '', args: '', env: '' }   // StreamableHTTP is what new remote servers default to
 
 function AddServerForm({ onAdd, onCancel }: {
   onAdd: (cfg: Omit<McpServerConfig, 'id' | 'createdAt'>) => void
@@ -152,7 +152,7 @@ function AddServerForm({ onAdd, onCancel }: {
 
   function submit() {
     if (!form.name.trim()) { setError('Name is required'); return }
-    if (form.transport === 'sse' && !form.url.trim()) { setError('URL is required for SSE transport'); return }
+    if (form.transport !== 'stdio' && !form.url.trim()) { setError(`URL is required for ${form.transport === 'sse' ? 'SSE' : 'StreamableHTTP'} transport`); return }
     if (form.transport === 'stdio' && !form.command.trim()) { setError('Command is required for stdio transport'); return }
     let env: Record<string, string> | undefined
     if (form.env.trim()) {
@@ -161,7 +161,7 @@ function AddServerForm({ onAdd, onCancel }: {
     }
     onAdd({
       name: form.name.trim(), transport: form.transport, enabled: true,
-      url: form.transport === 'sse' ? form.url.trim() : undefined,
+      url: form.transport !== 'stdio' ? form.url.trim() : undefined,
       command: form.transport === 'stdio' ? form.command.trim() : undefined,
       args: form.transport === 'stdio' && form.args.trim() ? form.args.trim().split(/\s+/) : undefined,
       env,
@@ -179,23 +179,26 @@ function AddServerForm({ onAdd, onCancel }: {
       <div className="space-y-1">
         <label className="text-xs font-medium text-[var(--color-text-secondary)]">Transport</label>
         <div className="flex gap-2">
-          {(['sse', 'stdio'] as McpTransport[]).map((t) => (
+          {(['http', 'sse', 'stdio'] as McpTransport[]).map((t) => (
             <button key={t} type="button" disabled={t === 'stdio' && !canStdio}
               onClick={() => set('transport', t)}
               className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${form.transport === t ? 'border-[#1d4ed8] bg-[#1d4ed8] text-white' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe]'}`}>
-              {t === 'sse' ? 'SSE / HTTP' : 'stdio (Tauri)'}
+              {t === 'http' ? 'StreamableHTTP' : t === 'sse' ? 'SSE (legacy)' : 'stdio (Tauri)'}
             </button>
           ))}
         </div>
         {form.transport === 'stdio' && !canStdio && (
           <p className="text-[11px] text-[#f59e0b]">stdio transport requires the Tauri desktop app</p>
         )}
+        {form.transport === 'http' && (
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">Routed through the agent-machine sidecar — every call is identity-attributed and trust-gated on the governance plane.</p>
+        )}
       </div>
-      {form.transport === 'sse' && (
+      {form.transport !== 'stdio' && (
         <div className="space-y-1">
           <label className="text-xs font-medium text-[var(--color-text-secondary)]">Server URL</label>
           <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
-            placeholder="http://localhost:3100/sse" value={form.url} onChange={(e) => set('url', e.target.value)} />
+            placeholder={form.transport === 'sse' ? 'http://localhost:3100/sse' : 'https://example.com/mcp'} value={form.url} onChange={(e) => set('url', e.target.value)} />
         </div>
       )}
       {form.transport === 'stdio' && (<>
@@ -239,7 +242,7 @@ function McpServerRow({ state, onConnect, onDisconnect, onRemove }: {
             <McpStatusChip status={status} />
           </div>
           <p className="mt-0.5 truncate text-xs text-[var(--color-text-tertiary)]">
-            {config.transport === 'sse' ? config.url : `${config.command} ${(config.args ?? []).join(' ')}`}
+            {config.transport === 'stdio' ? `${config.command} ${(config.args ?? []).join(' ')}` : config.url}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -345,7 +348,7 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
         <div className="space-y-3">
           <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs leading-5 text-[var(--color-text-secondary)] space-y-1">
             <p className="font-semibold text-[var(--color-text-primary)]">Model Context Protocol servers</p>
-            <p>Connect any MCP-compatible server to expose tools and resources in the Noetica chat. SSE/HTTP works everywhere; stdio requires the Tauri desktop app.</p>
+            <p>Connect any MCP-compatible server to expose tools and resources in the Noetica chat. StreamableHTTP (via the governed sidecar) and SSE work everywhere; stdio requires the Tauri desktop app.</p>
           </div>
           {!hydrated && <p className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
           {hydrated && serverStates.length === 0 && !showAdd && (

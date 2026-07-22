@@ -1,6 +1,9 @@
 // ─── MCP Server configuration ─────────────────────────────────────────────────
 
-export type McpTransport = 'stdio' | 'sse'
+/** 'http' = StreamableHTTP — the current MCP spec's default remote transport. The WebView never dials
+ *  it directly (CSP confines connect-src to :8080/:11435); the connection is proxied through the
+ *  agent-machine sidecar's /api/mcp/remote/* routes, which also puts it on the governed A2A plane. */
+export type McpTransport = 'stdio' | 'sse' | 'http'
 
 export interface McpServerConfig {
   id: string
@@ -12,9 +15,9 @@ export interface McpServerConfig {
   args?: string[]
   /** stdio: extra env vars forwarded to the child process */
   env?: Record<string, string>
-  /** sse: server URL, e.g. "http://localhost:3100/sse" */
+  /** sse/http: server URL, e.g. "http://localhost:3100/sse" or "https://example.com/mcp" */
   url?: string
-  /** sse: extra request headers (auth tokens etc.) */
+  /** sse/http: extra request headers (auth tokens etc.) */
   headers?: Record<string, string>
   enabled: boolean
   createdAt: string

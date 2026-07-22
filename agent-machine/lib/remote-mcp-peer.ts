@@ -47,11 +47,15 @@ export interface RemotePeerConfig {
   trustFloor?: number
 }
 
+/** Full tool metadata from the peer's tools/list — the UI needs schemas, not just names. */
+export interface RemoteToolInfo { name: string; description?: string; inputSchema: Record<string, unknown> }
+
 interface RemotePeerHandle {
   config: RemotePeerConfig
   client: Client
   transport: SSEClientTransport | StreamableHTTPClientTransport
   tools: string[]
+  toolInfo: RemoteToolInfo[]
 }
 
 const remotePeers = new Map<string, RemotePeerHandle>()
@@ -78,9 +82,9 @@ function timeout<T>(ms: number, p: Promise<T>): Promise<T> {
 }
 
 /** Connect to a remote MCP server. Idempotent — returns the existing handle if already connected. */
-export async function connectRemotePeer(cfg: RemotePeerConfig): Promise<{ spiffeId: string; tools: string[] }> {
+export async function connectRemotePeer(cfg: RemotePeerConfig): Promise<{ spiffeId: string; tools: string[]; toolInfo: RemoteToolInfo[] }> {
   const existing = remotePeers.get(cfg.spiffeId)
-  if (existing) return { spiffeId: cfg.spiffeId, tools: existing.tools }
+  if (existing) return { spiffeId: cfg.spiffeId, tools: existing.tools, toolInfo: existing.toolInfo }
 
   assertHost(cfg)
 
@@ -98,10 +102,15 @@ export async function connectRemotePeer(cfg: RemotePeerConfig): Promise<{ spiffe
     await timeout(CONNECT_TIMEOUT_MS, client.connect(transport))
     const list = await timeout(CONNECT_TIMEOUT_MS, client.listTools())
     const tools = (list.tools ?? []).map((t) => t.name)
-    remotePeers.set(cfg.spiffeId, { config: cfg, client, transport, tools })
+    const toolInfo: RemoteToolInfo[] = (list.tools ?? []).map((t) => ({
+      name: t.name,
+      description: t.description,
+      inputSchema: (t.inputSchema ?? {}) as Record<string, unknown>,
+    }))
+    remotePeers.set(cfg.spiffeId, { config: cfg, client, transport, tools, toolInfo })
     recordOutcome(cfg.spiffeId, { up: true })
     console.log(`[remote-mcp] connected ${cfg.spiffeId} (${tools.length} tools) via ${cfg.transport}`)
-    return { spiffeId: cfg.spiffeId, tools }
+    return { spiffeId: cfg.spiffeId, tools, toolInfo }
   } catch (e) {
     recordOutcome(cfg.spiffeId, { up: false })
     try { await client.close() } catch { /* */ }

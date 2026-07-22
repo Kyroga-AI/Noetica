@@ -9696,6 +9696,66 @@ Question: ${question}`
     return
   }
 
+  // ── /api/mcp/remote/* — the Connectors panel's door to StreamableHTTP (and SSE) MCP servers ──
+  // The WebView's CSP connect-src only allows :8080/:11435, so the frontend CANNOT dial an
+  // arbitrary MCP endpoint itself — and shouldn't: routing through the sidecar keeps every remote
+  // MCP connection on the governed plane (SPIFFE identity in the A2A ledger, checkActorGrant on
+  // every call, outcomes feeding behavioral trust) instead of an unattributable WebView fetch.
+  // These are mutating routes that make the sidecar dial a caller-supplied URL, so they carry the
+  // same CSRF/DNS-rebinding guard as /api/containment: reject real cross-site Origins + require
+  // JSON content-type (a text/plain POST would skip the CORS preflight).
+  if (req.method === 'POST' && (url.pathname === '/api/mcp/remote/connect' || url.pathname === '/api/mcp/remote/call' || url.pathname === '/api/mcp/remote/disconnect')) {
+    setCORSHeaders(res)
+    const origin = req.headers['origin']
+    if (typeof origin === 'string' && /^https?:\/\//i.test(origin) && !/^https?:\/\/(127\.0\.0\.1|localhost)(:|$|\/)/i.test(origin)) { res.writeHead(403, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'cross_origin_blocked' })); return }
+    // Same no-Origin-header bypass as /api/containment — see the comment there.
+    if (!requireApiToken(req, res)) return
+    if (!String(req.headers['content-type'] ?? '').includes('application/json')) { res.writeHead(415, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'json_content_type_required' })); return }
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => { void (async () => {
+      try {
+        const b = JSON.parse(Buffer.concat(chunks).toString() || '{}') as {
+          spiffe_id?: string; url?: string; transport?: string; headers?: Record<string, string>; token?: string
+          tool?: string; args?: Record<string, unknown>
+        }
+        const { connectRemotePeer, callRemotePeerTool, disconnectRemotePeer } = await import('./lib/remote-mcp-peer.js')
+
+        if (url.pathname === '/api/mcp/remote/connect') {
+          if (!b.url) throw new Error('url required')
+          const endpoint = new URL(b.url)
+          if (endpoint.protocol !== 'http:' && endpoint.protocol !== 'https:') throw new Error('url must be http(s)')
+          const transport = b.transport === 'sse' ? 'sse' as const : 'http' as const   // StreamableHTTP unless SSE asked for
+          // Identity is derived from the endpoint host unless the caller supplies one — every remote
+          // peer gets a SPIFFE id so its calls are attributable + trust-scored from the first handshake.
+          const spiffeId = b.spiffe_id ?? `spiffe://remote-mcp/${endpoint.hostname}`
+          const r = await connectRemotePeer({ spiffeId, url: b.url, transport, headers: b.headers, token: b.token })
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ spiffe_id: r.spiffeId, tools: r.toolInfo }))
+          return
+        }
+
+        if (url.pathname === '/api/mcp/remote/call') {
+          if (!b.spiffe_id || !b.tool) throw new Error('spiffe_id and tool required')
+          const r = await callRemotePeerTool(b.spiffe_id, b.tool, b.args)
+          res.writeHead(r.ok ? 200 : r.decision.valid ? 502 : 403, { 'content-type': 'application/json' })
+          res.end(JSON.stringify(r))
+          return
+        }
+
+        // /api/mcp/remote/disconnect
+        if (!b.spiffe_id) throw new Error('spiffe_id required')
+        await disconnectRemotePeer(b.spiffe_id)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: true }))
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'bad request').replace(/[\r\n]+/g, ' ') }))
+      }
+    })() })
+    return
+  }
+
   // POST /api/ingest/path — ingest a LOCAL file by absolute path { path }. Used by
   // the Tauri picker (the webview can't read files; the native dialog returns a
   // path and the sidecar — full fs access — reads + extracts + embeds it).

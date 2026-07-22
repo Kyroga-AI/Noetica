@@ -7,13 +7,19 @@
  *   • stdio — spawns the server via tauri-plugin-shell and wires a custom
  *             JSON-RPC readline transport. Only active when isTauri() === true;
  *             gracefully unavailable in browser dev mode.
+ *   • http  — StreamableHTTP, PROXIED through the agent-machine sidecar
+ *             (/api/mcp/remote/*). Deliberately NOT a WebView transport: the
+ *             CSP confines connect-src to :8080/:11435, and routing through the
+ *             sidecar puts the connection on the governed A2A plane (SPIFFE
+ *             identity, checkActorGrant per call, outcomes → behavioral trust)
+ *             instead of an unattributable frontend fetch.
  *
  * The manager is a plain-JS singleton (not React). React state lives in
  * useMcp.ts which subscribes to change callbacks here.
  */
 
 import type { McpServerConfig, McpServerState, McpTool, McpResource, McpToolResult, McpToolCall } from '@/lib/types/mcp'
-import { isTauri } from '@/lib/tauri/bridge'
+import { isTauri, amUrl } from '@/lib/tauri/bridge'
 
 // ─── Minimal SDK shim types ───────────────────────────────────────────────────
 
@@ -108,6 +114,27 @@ async function makeTauriStdioTransport(config: McpServerConfig): Promise<AnyTran
   }
 }
 
+// ─── Sidecar-proxied StreamableHTTP peer ──────────────────────────────────────
+
+/** Marker "client" for an http-transport server: calls are relayed to the sidecar peer, not an SDK client. */
+interface SidecarPeer { __sidecarPeer: string }
+function isSidecarPeer(c: unknown): c is SidecarPeer {
+  return typeof c === 'object' && c !== null && typeof (c as SidecarPeer).__sidecarPeer === 'string'
+}
+
+interface SidecarToolInfo { name: string; description?: string; inputSchema?: Record<string, unknown> }
+
+async function sidecarPost<T>(path: string, body: object): Promise<T> {
+  const r = await fetch(amUrl(path), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const j = (await r.json().catch(() => ({}))) as T & { error?: string }
+  if (!r.ok) throw new Error(j.error ?? `sidecar ${path} failed: ${r.status}`)
+  return j
+}
+
 // ─── McpClientManager ─────────────────────────────────────────────────────────
 
 type StateListener = (states: McpServerState[]) => void
@@ -164,6 +191,26 @@ class McpClientManager {
     this.notify()
 
     try {
+      // http (StreamableHTTP) is handled ENTIRELY by the sidecar — no SDK, no WebView egress.
+      if (config.transport === 'http') {
+        if (!config.url) throw new Error('HTTP transport requires a URL')
+        const resp = await sidecarPost<{ spiffe_id: string; tools: SidecarToolInfo[] }>('/api/mcp/remote/connect', {
+          url: config.url,
+          transport: 'http',
+          headers: config.headers && Object.keys(config.headers).length ? config.headers : undefined,
+        })
+        const tools: McpTool[] = (resp.tools ?? []).map((t) => ({
+          name: t.name,
+          description: t.description,
+          inputSchema: t.inputSchema ?? {},
+          serverId: config.id,
+          serverName: config.name,
+        }))
+        this.clients.set(config.id, { __sidecarPeer: resp.spiffe_id } satisfies SidecarPeer)
+        this.setState(config.id, { status: 'connected', tools, resources: [], connectedAt: new Date().toISOString() })
+        return
+      }
+
       const sdkMod = await makeSdkClient()
       if (!sdkMod) throw new Error('@modelcontextprotocol/sdk not installed')
 
@@ -230,7 +277,11 @@ class McpClientManager {
   async disconnect(id: string): Promise<void> {
     const client = this.clients.get(id)
     if (client) {
-      try { await client.close() } catch { /* ignore */ }
+      if (isSidecarPeer(client)) {
+        try { await sidecarPost('/api/mcp/remote/disconnect', { spiffe_id: client.__sidecarPeer }) } catch { /* best-effort */ }
+      } else {
+        try { await client.close() } catch { /* ignore */ }
+      }
       this.clients.delete(id)
     }
     const existing = this.states.get(id)
@@ -263,6 +314,21 @@ class McpClientManager {
       // A denied federated call is a soft integrity signal — record it so a misbehaving peer keeps losing trust.
       if (peer) recordActorOutcome(peer, { ok: false })
       return { serverId: call.serverId, toolName: call.toolName, content: [{ type: 'text', text: `Tool blocked by A2A grant policy: ${verdict.reason}` }], isError: true }
+    }
+    // Sidecar-proxied StreamableHTTP peer: relay to /api/mcp/remote/call. The sidecar applies the
+    // AUTHORITATIVE actor gate (checkActorGrant on the peer's SPIFFE id) and feeds its trust ledger —
+    // the session grant above is the same frontend gate every local server gets, not a duplicate.
+    if (isSidecarPeer(client)) {
+      try {
+        const r = await sidecarPost<{ ok: boolean; result?: { content?: McpToolResult['content']; isError?: boolean }; error?: string }>(
+          '/api/mcp/remote/call',
+          { spiffe_id: client.__sidecarPeer, tool: call.toolName, args: call.args },
+        )
+        if (!r.ok) return { serverId: call.serverId, toolName: call.toolName, content: [{ type: 'text', text: r.error ?? 'remote call failed' }], isError: true }
+        return { serverId: call.serverId, toolName: call.toolName, content: r.result?.content ?? [], isError: r.result?.isError ?? false }
+      } catch (e) {
+        return { serverId: call.serverId, toolName: call.toolName, content: [{ type: 'text', text: e instanceof Error ? e.message : String(e) }], isError: true }
+      }
     }
     try {
       const resp = await client.callTool({ name: call.toolName, arguments: call.args })
