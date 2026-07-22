@@ -92,6 +92,14 @@ jobs:
           $exe = Get-ChildItem -Recurse ollama-win -Filter ollama.exe | Select-Object -First 1
           Copy-Item $exe.FullName "src-tauri/binaries/ollama-x86_64-pc-windows-msvc.exe"
 
+      - name: Keep only Windows sidecars before inject
+        # inject-am-sidecar-config.mjs decides externalBin from any file matching `<name>-*`,
+        # which is target-blind: the committed macOS binary (noetica-embed-aarch64-apple-darwin)
+        # would make it wire `noetica-embed`, and Tauri would then demand the Windows .exe we
+        # never built. Drop every non-Windows sidecar so only freshly-built binaries get wired.
+        shell: bash
+        run: find src-tauri/binaries -maxdepth 1 -type f ! -name '*windows-msvc*' -print -delete
+
       - name: Inject externalBin (only binaries present on disk)
         run: node scripts/inject-am-sidecar-config.mjs
 
