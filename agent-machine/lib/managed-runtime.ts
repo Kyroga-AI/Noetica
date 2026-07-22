@@ -139,6 +139,35 @@ export async function reapOrphanRunners(base: string, parentPid: number): Promis
 
 const REAP_INTERVAL_MS = 3 * 60_000   // sweep every 3 min — well inside the 5m keep_alive window
 
+// ── Serve stderr tail ────────────────────────────────────────────────────────
+// The sandboxed `ollama serve` used to run with stdio:'ignore', so a startup abort
+// (e.g. the seatbelt denying a write during first-boot keygen) was INVISIBLE: the
+// runtime just never came up and every pull surfaced as a bare internal_error. We
+// keep the last few stderr lines so failure paths can report the actual cause.
+const STDERR_TAIL_LINES = 20
+let _stderrTail: string[] = []
+
+/** Last stderr lines from the managed `ollama serve` child (newest last). Empty when it started clean. */
+export function managedRuntimeStderrTail(): string {
+  return _stderrTail.join('\n')
+}
+
+function captureStderr(child: ChildProcess): void {
+  _stderrTail = []   // a fresh child gets a fresh tail — stale causes must not outlive a restart
+  child.stderr?.setEncoding('utf8')
+  let buf = ''
+  child.stderr?.on('data', (d: string) => {
+    buf += d
+    const lines = buf.split('\n')
+    buf = lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line.trim()) continue
+      _stderrTail.push(line.trim())
+      if (_stderrTail.length > STDERR_TAIL_LINES) _stderrTail.shift()
+    }
+  })
+}
+
 let _activeChild: ChildProcess | null = null
 let _reapTimer: ReturnType<typeof setInterval> | null = null
 let _lastRestart = 0
@@ -210,9 +239,15 @@ export async function ensureManagedRuntime(preferredPort = MANAGED_PORT): Promis
     : totalGb < 32
     ? { OLLAMA_MAX_LOADED_MODELS: '2', OLLAMA_NUM_PARALLEL: '1', OLLAMA_KEEP_ALIVE: '5m' }
     : { OLLAMA_MAX_LOADED_MODELS: '3', OLLAMA_NUM_PARALLEL: '2', OLLAMA_KEEP_ALIVE: '10m' }
-  const child = spawn(cmd, args, { env: { ...process.env, ...env, ...memEnv, OLLAMA_HOST: `127.0.0.1:${port}` }, stdio: 'ignore', detached: false })
+  // stderr is PIPED (not ignored) so a startup abort — the first-boot failure mode —
+  // leaves a readable cause in the tail instead of a silent dead runtime.
+  const child = spawn(cmd, args, { env: { ...process.env, ...env, ...memEnv, OLLAMA_HOST: `127.0.0.1:${port}` }, stdio: ['ignore', 'ignore', 'pipe'], detached: false })
+  captureStderr(child)
   _activeChild = child   // held so restartManagedRuntime() can kill a wedged runner
-  child.on('exit', (code) => console.log(`[managed-runtime] sandboxed Ollama exited: ${code}`))
+  child.on('exit', (code) => {
+    const tail = managedRuntimeStderrTail()
+    console.log(`[managed-runtime] sandboxed Ollama exited: ${code}${tail ? `\n[managed-runtime] serve stderr tail:\n${tail}` : ''}`)
+  })
 
   const deadline = Date.now() + 60_000  // generous: cold launch under RAM pressure can be slow
   while (Date.now() < deadline) {
@@ -237,6 +272,7 @@ export async function ensureManagedRuntime(preferredPort = MANAGED_PORT): Promis
     } } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 500))
   }
-  console.warn('[managed-runtime] sandboxed Ollama did not become ready in 60s')
+  const tail = managedRuntimeStderrTail()
+  console.warn(`[managed-runtime] sandboxed Ollama did not become ready in 60s${tail ? ` — serve stderr tail:\n${tail}` : ''}`)
   return { child, port, base }
 }

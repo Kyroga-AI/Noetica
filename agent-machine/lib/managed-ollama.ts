@@ -134,15 +134,25 @@ export async function provisionOllamaRuntime(version = process.env['OLLAMA_VERSI
   } catch { return null } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
 }
 
-/** The sandbox-exec launch recipe for the managed Ollama. */
+/** The sandbox-exec launch recipe for the managed Ollama.
+ *
+ *  The child's HOME is REDIRECTED into the app data dir: Ollama derives its identity-key
+ *  path from os.UserHomeDir() ($HOME/.ollama/id_ed25519) and generates the key during
+ *  serve init — no env var relocates it independently (OLLAMA_MODELS moves blobs only).
+ *  With the real HOME, that first-boot keygen hits the seatbelt write-deny, `serve`
+ *  aborts before listening, and every model pull fails as internal_error on a clean Mac.
+ *  Redirecting HOME lands the key (and any ~/Library caches) inside ~/.noetica, which the
+ *  profile already write-allows — note `-D HOME=` (the PROFILE's allow-list root) stays
+ *  the REAL home, so this needs no profile change and opens no hole outside containment.
+ */
 export function buildLaunchRecipe(binary: string): { cmd: string; args: string[]; env: Record<string, string> } {
   return {
     cmd: 'sandbox-exec',
     args: ['-D', `HOME=${os.homedir()}`, '-f', PROFILE_PATH, binary, 'serve'],
     env: {
+      HOME: path.join(os.homedir(), '.noetica'),
       OLLAMA_HOST: `127.0.0.1:${MANAGED_PORT}`,
-      OLLAMA_HOME: path.join(os.homedir(), '.noetica', 'ollama-home'),
-      OLLAMA_MODELS: MODELS_DIR,
+      OLLAMA_MODELS: MODELS_DIR,   // pinned explicitly — do NOT inherit the redirected-HOME default
       OLLAMA_KEEP_ALIVE: '30m',
     },
   }

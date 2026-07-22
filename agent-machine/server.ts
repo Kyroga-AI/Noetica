@@ -6745,7 +6745,19 @@ const server = http.createServer((req, res) => {
           })
           sse(res, 'progress', { model, status: 'complete', pct: 100, done: true })
         } catch (e) {
-          sse(res, 'progress', { model, status: 'error', pct: null, done: true, error: 'internal_error' })
+          // Carry the CAUSE, not a bare internal_error. The canonical first-boot failure is the managed
+          // runtime never coming up (serve aborted under the seatbelt) — then the pull's fetch just gets
+          // connection-refused, which reads like the whole app is broken. Attach the serve stderr tail so
+          // the user/logs see WHY the runtime is down.
+          let detail = e instanceof Error ? e.message : 'internal_error'
+          try {
+            if (!(await isOllamaRunning())) {
+              const { managedRuntimeStderrTail } = await import('./lib/managed-runtime.js')
+              const tail = managedRuntimeStderrTail()
+              detail = `local model runtime is not running — ${detail}${tail ? `; serve stderr: ${tail.split('\n').slice(-3).join(' | ')}` : ''}`
+            }
+          } catch { /* diagnosis is best-effort — never mask the original error */ }
+          sse(res, 'progress', { model, status: 'error', pct: null, done: true, error: detail.replace(/[\r\n]+/g, ' ').slice(0, 500) })
         } finally {
           try { res.end() } catch { /* ignore */ }
         }

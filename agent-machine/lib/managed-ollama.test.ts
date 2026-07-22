@@ -28,3 +28,15 @@ test('launch recipe uses sandbox-exec with the profile + isolated port/model dir
   assert.equal(r.env['OLLAMA_HOST'], `127.0.0.1:${MANAGED_PORT}`)
   assert.match(r.env['OLLAMA_MODELS']!, /\.noetica\/models$/)
 })
+
+test('launch recipe redirects the child HOME into the write-allowed app data dir (first-boot keygen)', () => {
+  const r = buildLaunchRecipe('/opt/homebrew/bin/ollama')
+  // Ollama generates $HOME/.ollama/id_ed25519 during serve init; with the real HOME the
+  // seatbelt denies that mkdir and serve never comes up on a clean Mac. The child's HOME
+  // must resolve inside ~/.noetica (already write-allowed by the profile)…
+  assert.match(r.env['HOME']!, /\.noetica$/)
+  // …while the PROFILE's allow-list root (-D HOME=) stays the REAL home, so the
+  // (string-append (param "HOME") "/.noetica") write rule keeps pointing at ~/.noetica.
+  const dParam = r.args[r.args.indexOf('-D') + 1]!
+  assert.ok(dParam.startsWith('HOME=') && !dParam.includes('.noetica'))
+})
