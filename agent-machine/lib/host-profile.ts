@@ -33,7 +33,7 @@ export type ProviderId =
   | 'host-process'            // dev only
 
 export interface HostProfile {
-  os: 'darwin' | 'linux' | 'other'
+  os: 'darwin' | 'linux' | 'win32' | 'other'
   arch: string
   totalRamGb: number
   cpus: number
@@ -65,7 +65,7 @@ async function nvidiaPresent(): Promise<boolean> {
 
 export async function profileHost(): Promise<HostProfile> {
   const platform = process.platform
-  const osName: HostProfile['os'] = platform === 'darwin' ? 'darwin' : platform === 'linux' ? 'linux' : 'other'
+  const osName: HostProfile['os'] = platform === 'darwin' ? 'darwin' : platform === 'linux' ? 'linux' : platform === 'win32' ? 'win32' : 'other'
   const totalRamGb = Math.round((os.totalmem() / 1024 ** 3) * 10) / 10
   const [podman, krunkit, nvidia] = await Promise.all([
     whichOk('podman'),
@@ -132,6 +132,13 @@ export function selectIsolationTier(p: HostProfile): IsolationSelection {
         + `fast and isolated without VM overhead. Install krunkit + ≥${VM_MIN_RAM_GB}GB for full VM isolation.` }
   }
 
+  if (p.os === 'win32') {
+    // Honest Windows tier until the sandbox lattice lands (WSL2 → Windows Sandbox → Job
+    // Objects): a bare host process, SAID OUT LOUD. Downstream code-execution lanes treat
+    // 'host-process' as unsandboxed and require the explicit unsafe opt-in.
+    return { tier: 'process', provider: 'host-process', gpu: 'none', modelCeiling: ceiling, recommendedModels: models,
+      rationale: `Windows: NO sandbox tier implemented yet — bare host process. Agent code-execution stays disabled unless NOETICA_ALLOW_UNSANDBOXED=1.` }
+  }
   return { tier: 'process', provider: 'host-process', gpu: 'none', modelCeiling: ceiling, recommendedModels: models,
     rationale: `Unrecognized platform — bare host process (dev only).` }
 }

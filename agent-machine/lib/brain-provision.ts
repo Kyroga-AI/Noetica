@@ -162,15 +162,26 @@ export async function provisionBrain(name: 'academic' | 'operational', onProgres
     let seen = 0
     const ws = fs.createWriteStream(tmp)
     const reader = res.body.getReader()
+    // STALL DETECTOR: a repeated '0%' tells the user nothing — is it a big file crawling or a
+    // dead stream? Emit BYTES on a cadence (works with no Content-Length too), and abort if no
+    // byte has arrived for STALL_MS instead of hanging forever with no exit condition.
+    const STALL_MS = Number(process.env['NOETICA_BRAIN_STALL_MS'] || 45_000)
+    let lastByteAt = Date.now()
+    let lastReport = 0
+    const stallTimer = setInterval(() => {
+      if (Date.now() - lastByteAt > STALL_MS) { clearInterval(stallTimer); void reader.cancel(new Error(`download stalled: no bytes for ${Math.round(STALL_MS / 1000)}s (${seen} bytes received${total ? ` of ${total}` : ''})`)) }
+    }, 5_000)
     try {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
         ws.write(Buffer.from(value))
         seen += value.length
+        lastByteAt = Date.now()
         if (total) onProgress?.({ phase: 'downloading', pct: Math.round((seen / total) * 100) })
+        else if (Date.now() - lastReport > 10_000) { lastReport = Date.now(); console.log(`[brain-provision] downloading… ${(seen / 1e6).toFixed(1)} MB (size unknown)`) }
       }
-    } finally { reader.releaseLock(); ws.end() }
+    } finally { clearInterval(stallTimer); reader.releaseLock(); ws.end() }
     await new Promise<void>((resolve, reject) => { ws.on('finish', () => resolve()); ws.on('error', reject) })
 
     // Integrity: never install a corrupt/tampered/unverified brain. A trusted sha256 is REQUIRED —

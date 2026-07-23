@@ -88,6 +88,7 @@ import { grlLoop, grlEnabled, grlActive, grlExplore, retrievalActionOf, graphSta
 import { meshEnabled, publishTransitions } from './lib/grl-federation.js'
 let _grlMeshTick = 0 // counts GRL observes; every 25th flushes redacted signals to the opt-in mesh
 import { handlePeerSync, syncAllPeers, graphSyncEnabled } from './lib/http-sync.js'
+import { resolvePython, pythonUnavailableHint } from './lib/python-resolve.js'
 import { initFederation, federationStatus, optIn as federationOptIn, optOut as federationOptOut } from './lib/federation-participant.js'
 import { getGraphReplica, captureGraphIntoReplica, applyReplicaToGraph, saveGraphReplica, type GraphLike } from './lib/graph-replica.js'
 // Adapter: the @socioprophet/hellgraph facade → the engine-agnostic GraphLike the CRDT replica binds to.
@@ -18792,10 +18793,13 @@ server.listen(PORT, BIND_HOST, () => {
       }
     } catch { /* not running — try to start */ }
     const memorydDir = path.join(path.dirname(process.argv[1] ?? __filename), '..', 'memory-mesh', 'services', 'memoryd')
-    const python = process.env['HELLGRAPH_PYTHON'] ?? 'python3'
+    const _py = resolvePython()
+    if (!_py) { console.warn('[noetica-am] python sidecar skipped — ' + pythonUnavailableHint()); return }
+    const python = _py.cmd
+    const pythonPre = _py.args
     if (fs.existsSync(memorydDir)) {
       try {
-        const proc = cp.spawn(python, ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8787', '--log-level', 'warning'], {
+        const proc = cp.spawn(python, [...pythonPre, '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8787', '--log-level', 'warning'], {
           cwd: memorydDir,
           detached: false,
           stdio: ['ignore', 'pipe', 'pipe'],
@@ -18829,10 +18833,13 @@ server.listen(PORT, BIND_HOST, () => {
       }
     } catch { /* not running — try to start */ }
     const prometheusdDir = path.join(path.dirname(process.argv[1] ?? __filename), '..', 'prometheusd')
-    const python = process.env['HELLGRAPH_PYTHON'] ?? 'python3'
+    const _py = resolvePython()
+    if (!_py) { console.warn('[noetica-am] python sidecar skipped — ' + pythonUnavailableHint()); return }
+    const python = _py.cmd
+    const pythonPre = _py.args
     if (fs.existsSync(prometheusdDir)) {
       try {
-        const proc = cp.spawn(python, ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', '8890', '--log-level', 'warning'], {
+        const proc = cp.spawn(python, [...pythonPre, '-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', '8890', '--log-level', 'warning'], {
           cwd: prometheusdDir,
           detached: false,
           stdio: ['ignore', 'pipe', 'pipe'],
@@ -18862,9 +18869,12 @@ server.listen(PORT, BIND_HOST, () => {
     const health = await sidecarHealth()
     if (!health) {
       const sidecarDir = path.join(path.dirname(process.argv[1] ?? __filename), '..', 'opencog-sidecar')
-      const python = process.env['HELLGRAPH_PYTHON'] ?? 'python3'
+      const _py = resolvePython()
+    if (!_py) { console.warn('[noetica-am] python sidecar skipped — ' + pythonUnavailableHint()); return }
+    const python = _py.cmd
+    const pythonPre = _py.args
       try {
-        const proc = cp.spawn(python, ['-m', 'uvicorn', 'server:app', '--host', '127.0.0.1', '--port', '8137', '--log-level', 'warning'], {
+        const proc = cp.spawn(python, [...pythonPre, '-m', 'uvicorn', 'server:app', '--host', '127.0.0.1', '--port', '8137', '--log-level', 'warning'], {
           cwd: sidecarDir,
           detached: false,
           stdio: ['ignore', 'pipe', 'pipe'],

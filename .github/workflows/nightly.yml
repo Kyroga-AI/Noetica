@@ -6,8 +6,11 @@ name: nightly
 # noetica-nightly cask at the fresh build.
 on:
   schedule:
-    # 08:00 UTC daily ≈ early US morning. Adjust to your timezone as desired.
-    - cron: "0 8 * * *"
+    # 18:00 UTC daily = 2PM US Eastern during daylight time (1PM in winter — GitHub cron is
+    # UTC-only). Chosen so a day's merges are IN that day's nightly: the old 08:00 UTC cut
+    # fired before the workday, so every nightly shipped yesterday's main (the 2026-07-22
+    # cask-staleness incident). NB GitHub may delay scheduled runs up to ~2h under load.
+    - cron: "0 18 * * *"
   workflow_dispatch: {}
 
 permissions:

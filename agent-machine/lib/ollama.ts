@@ -11,7 +11,20 @@ import type { ProviderTool, ToolUseBlock, ProviderEvent } from '../server.js'
 
 // 11435 is Noetica's isolated Ollama port — separate from any system Ollama on 11434.
 // OLLAMA_HOST env can override for dev (e.g. point at system Ollama during local iteration).
-const OLLAMA_PRIMARY = process.env['OLLAMA_HOST'] ?? 'http://127.0.0.1:11435'
+// OLLAMA_HOST is often set for Ollama's OWN benefit as a BIND address ('0.0.0.0:11434') —
+// schemeless and unroutable as a CONNECT target ('fetch() URL is invalid' + retry storms on
+// Windows). Normalize: default scheme, 0.0.0.0/:: → loopback, default port when missing.
+function normalizeOllamaBase(raw: string | undefined, fallback: string): string {
+  if (!raw?.trim()) return fallback
+  let str = raw.trim()
+  if (!/^https?:\/\//i.test(str)) str = 'http://' + str
+  let u: URL
+  try { u = new URL(str) } catch { console.warn(`[ollama] OLLAMA_HOST ${JSON.stringify(raw)} is not a usable URL — using ${fallback}`); return fallback }
+  if (['0.0.0.0', '::', '[::]'].includes(u.hostname)) u.hostname = '127.0.0.1'
+  if (!u.port) u.port = '11434'
+  return u.origin
+}
+const OLLAMA_PRIMARY = normalizeOllamaBase(process.env['OLLAMA_HOST'], 'http://127.0.0.1:11435')
 // The primary is the app's OWN managed runtime (provisioned complete + sandboxed).
 // We no longer IMPLICITLY fall back to the user's system Ollama — that reintroduces
 // the host dependency the Agent Machine exists to remove. A fallback is used ONLY

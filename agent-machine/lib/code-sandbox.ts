@@ -17,6 +17,7 @@
  * This module is pure and dependency-injectable for testing. server.ts swaps the real cp.spawn in.
  */
 
+import { resolvePython, pythonUnavailableHint } from "./python-resolve.js";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as fs from "node:fs";
@@ -164,6 +165,14 @@ export function sandboxExecPrefix(): string[] | null {
 /** Wrap [cmd, ...args] with the credential-confinement sandbox when available. */
 function withSandbox(cmd: string, args: string[]): { cmd: string; args: string[] } {
   const prefix = sandboxExecPrefix();
+  const platformHasSandboxStory = process.platform === 'darwin' || process.platform === 'linux'
+  if (!prefix && !platformHasSandboxStory && process.env['NOETICA_ALLOW_UNSANDBOXED'] !== '1') {
+    // FAIL CLOSED on platforms with NO sandbox story (Windows today, unknowns): the tester
+    // reasonably assumes the agent is sandboxed — make the downgrade an explicit operator
+    // decision, not a silent fallthrough. darwin uses seatbelt; linux keeps its established
+    // restricted-env execution path (container isolation happens at the runtime tier).
+    throw new Error('code execution disabled: no sandbox tier on this platform (set NOETICA_ALLOW_UNSANDBOXED=1 to accept bare-host execution)');
+  }
   return prefix ? { cmd: prefix[0]!, args: [...prefix.slice(1), cmd, ...args] } : { cmd, args };
 }
 
@@ -220,7 +229,9 @@ export interface SandboxResult {
 export function executePython(code: string, sessionDir: string): Promise<string> {
   const preamble = buildPythonPreamble(sessionDir);
   const fullCode = preamble + "\n" + code;
-  const w = withSandbox("python3", ["-c", fullCode]);
+  const py = resolvePython();
+  if (!py) return Promise.resolve("[error] " + pythonUnavailableHint());
+  const w = withSandbox(py.cmd, [...py.args, "-c", fullCode]);
   return new Promise((resolve) => {
     runSubprocess(
       w.cmd, w.args,

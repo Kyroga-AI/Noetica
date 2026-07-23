@@ -46,6 +46,11 @@
       "signingIdentity": null,
       "providerShortName": null,
       "hardenedRuntime": true
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
     }
   }
 }

@@ -389,6 +389,33 @@ jobs:
           TAG=${{ github.ref_name }}
           find src-tauri/target/release/bundle/nsis -name "*.exe" | xargs gh release upload "$TAG" --clobber
 
+  update-winget:
+    # winget = the brew-cask loop for Windows: `winget install SocioProphet.Noetica` /
+    # `winget upgrade` and you're current. STABLE tags only — winget-pkgs moderation is
+    # not the place for daily nightlies. The installer is UNSIGNED for now (free OSS
+    # signing via SignPath Foundation = backlog; the repo is public so it qualifies) —
+    # winget accepts unsigned installers, at the cost of first-run Defender friction.
+    # NOTE the FIRST-EVER submission of the package is a one-time step done outside CI
+    # (author manifests + PR microsoft/winget-pkgs); this job then owns every update.
+    needs: release-windows
+    if: ${{ !contains(github.ref_name, 'nightly') && !contains(github.ref_name, '-windows') }}
+    runs-on: windows-latest
+    steps:
+      - name: Submit winget manifest update
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WINGET_PAT: ${{ secrets.RELEASE_PAT || secrets.TAP_GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart("v")
+          # Resolve the freshly-uploaded NSIS asset from the release itself — no hardcoded name.
+          $exe = (gh release view $tag --repo ${{ github.repository }} --json assets --jq '.assets[].name') -split "`n" | Where-Object { $_ -like "*.exe" } | Select-Object -First 1
+          if (-not $exe) { Write-Error "no .exe asset on $tag"; exit 1 }
+          $url = "https://github.com/${{ github.repository }}/releases/download/$tag/$exe"
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          .\wingetcreate.exe update SocioProphet.Noetica --version $version --urls $url --submit --token $env:WINGET_PAT
+
   update-cask:
     needs: release-macos
     runs-on: ubuntu-latest
