@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Component, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MessageBubble, ProvenanceSidenote } from '@/components/chat/MessageBubble'
 import { TypingIndicator } from '@/components/chat/TypingIndicator'
 import { NoeticaMark } from '@/components/brand/NoeticaMark'
@@ -23,6 +23,26 @@ type MessageListProps = {
   onPlanApprove?: (messageId: string) => void
   onPlanReject?: (messageId: string) => void
   onInspect?: (message: ChatMessage) => void
+}
+
+// Per-MESSAGE error boundary. The chat surface has a SurfaceErrorBoundary around it, but
+// that granularity is wrong for a message list: one malformed tool result (e.g. a web-search
+// payload missing an expected field) used to unmount the entire conversation and show the
+// full-panel "Try again" fallback. Catch at the bubble instead — the rest of the thread,
+// the input box, and streaming all stay alive, and only the poisoned message degrades.
+class MessageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  componentDidCatch(error: Error) { console.error('[message-crash]', error) }
+  render() {
+    if (!this.state.error) return this.props.children
+    return (
+      <div className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[12px] text-[var(--color-text-secondary)]">
+        This message couldn&rsquo;t be displayed.{' '}
+        <button className="underline" onClick={() => this.setState({ error: null })}>Retry</button>
+      </div>
+    )
+  }
 }
 
 export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, speakingMessageId, onQuickPrompt, onFeedback, onPlanApprove, onPlanReject, onInspect }: MessageListProps) {
@@ -139,6 +159,7 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
                 />
               </label>
             )}
+            <MessageErrorBoundary>
             <MessageBubble
               message={message}
               isLast={i === lastAssistantIdx && !isStreaming}
@@ -155,6 +176,7 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
               onPlanReject={message.role === 'assistant' ? onPlanReject : undefined}
               onInspect={message.role === 'assistant' ? onInspect : undefined}
             />
+            </MessageErrorBoundary>
             </div>
             {/* Right margin — provenance sidenote for assistant answers (lg+ only) */}
             <aside className="hidden lg:block">

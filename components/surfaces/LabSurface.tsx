@@ -138,7 +138,8 @@ export function LabSurface() {
       setResult(pretty)
       setStatus({ ok: res.ok, code: res.status, ms: Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0) })
     } catch {
-      setResult('Request failed — is the local backend running? (agent-machine sidecar on :8080)')
+      console.warn('[lab] agent-machine :8080 unreachable')
+      setResult('That didn’t go through — the local engine isn’t responding. It usually starts with the app; try again in a moment.')
       setStatus({ ok: false, code: 0, ms: 0 })
     } finally { setLoading(false) }
   }

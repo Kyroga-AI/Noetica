@@ -26,9 +26,11 @@ export function ephemeralStamp(ttlMinutes: number | null | undefined, nowMs: num
 
 export function createSession(
   store: SessionStore,
-  opts: { surface: ActiveSurface; workspaceMode: WorkspaceMode; modelId: string; messages?: ChatMessage[]; title?: string; parentId?: SessionId; ephemeralTtlMinutes?: number | null }
+  opts: { surface: ActiveSurface; workspaceMode: WorkspaceMode; modelId: string; messages?: ChatMessage[]; title?: string; parentId?: SessionId; ephemeralTtlMinutes?: number | null; id?: SessionId }
 ): { store: SessionStore; session: WorkspaceSession } {
-  const id: SessionId = crypto.randomUUID()
+  // Caller-supplied id lets useSession build the session once (returned synchronously)
+  // and replay the SAME insert against the live store inside a functional update.
+  const id: SessionId = opts.id ?? crypto.randomUUID()
   const messages = (opts.messages ?? []).slice(-MAX_MESSAGES_PER_SESSION)
   const session: WorkspaceSession = {
     id, title: opts.title ?? deriveTitle(messages),

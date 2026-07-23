@@ -22,7 +22,7 @@ export async function loadWorkStore(): Promise<WorkStore> {
       const store: any = await mod.load('noetica-work.json', { autoSave: true })
       // eslint-disable-next-line
       const raw: any = await store.get(WORK_STORE_KEY)
-      if (raw?.items) return raw as WorkStore
+      if (raw && typeof raw === 'object' && raw.items && typeof raw.items === 'object') return raw as WorkStore
       return empty()
     }
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(WORK_STORE_KEY) : null

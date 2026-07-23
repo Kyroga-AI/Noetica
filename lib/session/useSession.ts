@@ -49,7 +49,15 @@ export function useSession(defaultModelId: string, opts?: { ephemeralTtlMinutes?
     saveTimer.current = setTimeout(() => saveSessionStore(next), SAVE_DEBOUNCE_MS)
   }, [])
 
-  function mutate(next: SessionStore) { setStore(next); persist(next) }
+  // Functional mutate. The old form (`mutate(updateSession(store, ...))`) computed the next
+  // store from the RENDER-TIME closure — so a persist firing after a long stream, or two
+  // mutations dispatched in one handler, would base off a stale store and silently clobber
+  // everything that changed in between (lost session switches, cross-chat message bleed —
+  // the v0.4.23 "two concurrent chats" field report). Every mutator now derives from the
+  // store React hands it at application time.
+  const mutate = useCallback((fn: (cur: SessionStore) => SessionStore) => {
+    setStore((cur) => { const next = fn(cur); persist(next); return next })
+  }, [persist])
 
   // Flush-on-quit: the debounced save can be lost if the app closes within the debounce
   // window — a real cause of "my chats didn't save". On pagehide / beforeunload / tab-hide
@@ -91,8 +99,10 @@ export function useSession(defaultModelId: string, opts?: { ephemeralTtlMinutes?
 
   const newSession = useCallback(
     (opts: { surface: ActiveSurface; workspaceMode: WorkspaceMode; messages?: ChatMessage[]; title?: string; parentId?: string }) => {
-      const { store: next, session } = createSession(store, { ...opts, modelId: defaultModelId, ephemeralTtlMinutes: ttlRef.current })
-      mutate(next)
+      // Still closure-based (it must RETURN the created session synchronously) but the
+      // mutate applies createSession against the live store so concurrent updates keep.
+      const { session } = createSession(store, { ...opts, modelId: defaultModelId, ephemeralTtlMinutes: ttlRef.current })
+      mutate((cur) => createSession(cur, { ...opts, id: session.id, modelId: defaultModelId, ephemeralTtlMinutes: ttlRef.current }).store)
       return session
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,26 +110,28 @@ export function useSession(defaultModelId: string, opts?: { ephemeralTtlMinutes?
   )
 
   const switchSession = useCallback(
-    (id: string) => mutate(setActiveSession(store, id)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store]
+    (id: string) => mutate((cur) => setActiveSession(cur, id)),
+    [mutate]
   )
 
   const removeSession = useCallback(
-    (id: string) => mutate(deleteSession(store, id)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store]
+    (id: string) => mutate((cur) => deleteSession(cur, id)),
+    [mutate]
   )
 
   const updateMessages = useCallback(
-    (messages: ChatMessage[]) => {
-      if (!store.activeSessionId) return
+    (messages: ChatMessage[], targetSessionId?: string) => {
       // While armed, every new message slides the obliteration window forward.
       const stamp = ephemeralStamp(ttlRef.current, Date.now())
-      mutate(updateSession(store, store.activeSessionId, { messages, ...stamp }))
+      mutate((cur) => {
+        // Explicit target wins (lets an in-flight exchange commit to the chat that STARTED
+        // it even if the user switched away); otherwise the currently-active session.
+        const id = targetSessionId ?? cur.activeSessionId
+        if (!id || !cur.sessions[id]) return cur
+        return updateSession(cur, id, { messages, ...stamp })
+      })
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store]
+    [mutate]
   )
 
   // Panic / disarm: obliterate every ephemeral session right now, durably.
@@ -133,29 +145,23 @@ export function useSession(defaultModelId: string, opts?: { ephemeralTtlMinutes?
 
   const updateSurface = useCallback(
     (surface: ActiveSurface, workspaceMode: WorkspaceMode) => {
-      if (!store.activeSessionId) return
-      mutate(updateSession(store, store.activeSessionId, { surface, workspaceMode }))
+      mutate((cur) => cur.activeSessionId ? updateSession(cur, cur.activeSessionId, { surface, workspaceMode }) : cur)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store]
+    [mutate]
   )
 
   const updateModelId = useCallback(
     (modelId: string) => {
-      if (!store.activeSessionId) return
-      mutate(updateSession(store, store.activeSessionId, { modelId }))
+      mutate((cur) => cur.activeSessionId ? updateSession(cur, cur.activeSessionId, { modelId }) : cur)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store]
+    [mutate]
   )
 
   const updateTitle = useCallback(
     (title: string) => {
-      if (!store.activeSessionId) return
-      mutate(updateSession(store, store.activeSessionId, { title }))
+      mutate((cur) => cur.activeSessionId ? updateSession(cur, cur.activeSessionId, { title }) : cur)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store]
+    [mutate]
   )
 
   // Open-chat commons toggle. 'open' PUBLISHES the chat (server runs the mandatory PII gate) and only flips the
@@ -169,11 +175,11 @@ export function useSession(defaultModelId: string, opts?: { ephemeralTtlMinutes?
         if (s.ephemeral) return { ok: false, error: 'ephemeral (security-lane) chats cannot be opened' }
         const r = await publishOpenChat(s)
         if (!r.ok) return r   // do NOT mark open if the server refused to index
-        mutate(updateSession(store, id, { visibility: 'open' }))
+        mutate((cur) => updateSession(cur, id, { visibility: 'open' }))
         return r
       }
       await revokeOpenChat(id)
-      mutate(updateSession(store, id, { visibility: 'private' }))
+      mutate((cur) => updateSession(cur, id, { visibility: 'private' }))
       return { ok: true }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

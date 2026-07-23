@@ -758,6 +758,9 @@ export function AppShell() {
   }, [])
 
   function handleNewChat() {
+    // Same isolation as switching: a new chat mid-stream must not inherit (or crash
+    // under) the previous chat's in-flight state.
+    settleOutgoingChat()
     const msgs = initialMessages
     setMessages(msgs)
     setActiveSurface('chat')
@@ -813,7 +816,8 @@ export function AppShell() {
       const text = String(data.result ?? data.error ?? 'No results found.')
       updateAssistant(assistantId, { content: (header ? header + '\n\n' : '') + text, quick_replies: followups })
     } catch (e) {
-      updateAssistant(assistantId, { content: `That couldn't run: ${e instanceof Error ? e.message : String(e)}. The runtime may still be warming up — try again in a moment.` })
+      console.warn('[chat] tool run failed:', e)
+      updateAssistant(assistantId, { content: `That couldn't run — the local engine may still be warming up. Try again in a moment.` })
     } finally {
       setIsStreaming(false)
       setMessages((cur) => { updateMessages(cur); return cur })
@@ -829,9 +833,38 @@ export function AppShell() {
     await runToolDirect(value, form.tool.name, input, header, form.followups)
   }
 
+  // Cross-chat isolation (v0.4.23 field report: with two chats going, responses bled
+  // between them, and opening a new chat mid-stream crashed both). Leaving a chat —
+  // whether by switching or by opening a new one — is an implicit STOP for the outgoing
+  // chat: abort its in-flight stream so nothing keeps writing after the visible thread
+  // is replaced, mark its unfinished assistant turns stopped, persist the outgoing
+  // thread to ITS OWN session (explicitly, by id), and reset the per-chat UI state
+  // (live turns, pinned inspector, pending dialogue form) that used to stay pinned to
+  // the previous chat in the right-hand sidebar.
+  function settleOutgoingChat() {
+    const outgoingId = activeSession?.id
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+      setIsStreaming(false)
+    }
+    if (outgoingId) {
+      const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
+      const settled = messages.map((m, i) =>
+        i > lastUserIdx && m.role === 'assistant' && !m.stopped && isStreaming ? { ...m, stopped: true } : m,
+      )
+      updateMessages(settled, outgoingId)
+    }
+    setLiveTurns([])
+    setInspectMessage(null)
+    setPendingForm(null)
+  }
+
   function handleSwitchSession(id: string) {
     const s = sessions.find((sess) => sess.id === id)
     if (!s) return
+    if (s.id === activeSession?.id) return
+    settleOutgoingChat()
     switchSession(id)
     setActiveSurface(s.surface)
     setWorkspaceMode(s.workspaceMode)
@@ -850,6 +883,18 @@ export function AppShell() {
     // Active project system prompt takes precedence over the manual system prompt field
     const projectPrompt = activeProject?.systemPrompt?.trim()
     if (projectPrompt) parts.push(`## Project: ${activeProject!.title}\n${projectPrompt}`)
+    // Project-first retrieval (v0.4.23 field report: with a project selected, "find my
+    // file X" went to broad web search instead of the project's own documents). Selecting
+    // a project means "look here first" — say so explicitly, and give the model the
+    // project's file inventory so lookups can resolve without any tool round-trip.
+    if (activeProject) {
+      const fileNames = (activeProject.fileAttachments ?? []).map((f) => f.name).filter(Boolean).slice(0, 30)
+      parts.push([
+        `## Active project context: ${activeProject.title}`,
+        `The user is working inside this project. When they ask to find, open, or summarize a file or document, search THIS project's documents and knowledge base FIRST. Only fall back to broad or web search if the project has no match or the user explicitly asks for an external search.`,
+        fileNames.length > 0 ? `Files attached to this project: ${fileNames.join(', ')}` : '',
+      ].filter(Boolean).join('\n'))
+    }
     if (userSystemPrompt.trim()) parts.push(userSystemPrompt.trim())
     return parts.length > 0 ? parts.join('\n\n') : undefined
   }
@@ -1006,7 +1051,7 @@ export function AppShell() {
         const body = `${j.answer ?? '(no answer)'}\n\n---\n_${badge}${srcs ? `  ·  sources: ${srcs}` : ''}_`
         setMessages((cur) => { const next = cur.map((m) => (m.id === a.id ? { ...m, content: body } : m)); updateMessages(next); return next })
       } catch {
-        setMessages((cur) => { const next = cur.map((m) => (m.id === a.id ? { ...m, content: 'Research failed — backend offline.' } : m)); updateMessages(next); return next })
+        setMessages((cur) => { const next = cur.map((m) => (m.id === a.id ? { ...m, content: 'Research couldn’t finish — the local engine isn’t responding right now. Try again in a moment.' } : m)); updateMessages(next); return next })
       }
       return
     }
@@ -1447,10 +1492,11 @@ export function AppShell() {
               // Self-aware: a connection/load failure right after launch means the local model
               // is still priming — caution the user gracefully instead of dumping a raw error.
               const warming = /load failed|fetch failed|econnrefused|not reachable|connection|503|timeout|loading|warm/i.test(String(error))
+              if (!warming) console.warn('[chat] route error:', error)
               updateAssistant(assistantId, {
                 content: warming
-                  ? '⏳ The local model is still warming up — this happens for a few seconds right after launch. Give it a moment and resend, or ask me something I can answer instantly (small talk, your files, a quick calc).'
-                  : `Noetica route error: ${error}`,
+                  ? `⏳ **${activeModel?.label ?? 'The local model'}** is still loading into memory — this happens once, right after launch, and usually takes under a minute. Give it a moment and resend, or ask me something I can answer instantly (small talk, your files, a quick calc).`
+                  : `That didn't go through — the local engine couldn't complete the request. Try again in a moment. (Details in the console.)`,
               })
             },
           },

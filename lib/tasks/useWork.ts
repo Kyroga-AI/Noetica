@@ -31,7 +31,11 @@ export function useWork(): UseWorkReturn {
   useEffect(() => {
     let cancelled = false
     loadWorkStore().then((s) => {
-      if (!cancelled) { setStore(s); setHydrated(true) }
+      // belt-and-braces: a malformed persisted store (or a failed plugin load resolving
+      // undefined) must never leave `store.items` unreadable — that class of bug crashed
+      // the whole chat panel ("undefined is not an object (evaluating 't.items')").
+      const safe = s && typeof s === 'object' && s.items ? s : { items: {}, sprints: {}, projects: {}, version: WORK_STORE_VERSION }
+      if (!cancelled) { setStore(safe); setHydrated(true) }
     })
     return () => { cancelled = true }
   }, [])

@@ -89,13 +89,14 @@ export function useVoice(onTranscript: (text: string) => void) {
             const res = await fetch(`${amBase}/api/stt`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ audio_b64: String(reader.result), language: (settings.voiceLanguage ?? 'en-US').slice(0, 2) }), signal: AbortSignal.timeout(90_000) })
             const j = (await res.json()) as { text?: string; error?: string }
             if (j.text?.trim()) { setError(null); onTranscript(j.text.trim()) }
-            else if (j.error) setError(`Speech-to-text unavailable: ${j.error}`)
+            else if (j.error) { console.warn('[voice] stt error:', j.error); setError('Couldn\u2019t transcribe that — please try again.') }
             else setError('Heard nothing — try again, closer to the mic.')
           } catch {
             // fetch threw → the voice backend isn't reachable. Make that explicit
             // instead of failing silently, and stop the live loop so it can't stall.
             liveRef.current = false; setIsLive(false)
-            setError('Voice backend offline — start the Agent Machine (port 8080) and try again.')
+            console.warn('[voice] STT backend unreachable — agent-machine :8080 down or /api/stt unavailable')
+            setError('Voice input is temporarily unavailable — it needs the local engine, which isn\u2019t running right now.')
           } finally { setState('idle') }
         }
         reader.readAsDataURL(blob)
