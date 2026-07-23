@@ -8,6 +8,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import oneDark from 'react-syntax-highlighter/dist/cjs/styles/prism/one-dark'
 import type { Artifact } from '@/lib/types/artifact'
 import { artifactTypeLabel, artifactTypeIcon, LANGUAGE_LABELS } from '@/lib/types/artifact'
+import { openExternal } from '@/lib/tauri/openExternal'
 
 type ArtifactPaneProps = {
   artifact: Artifact
@@ -140,7 +141,7 @@ function DocumentRenderer({ artifact, onUpdate }: { artifact: Artifact; onUpdate
                 blockquote: ({ children }) => <blockquote className="my-2 border-l-2 border-[var(--color-border-primary)] pl-3 italic text-[var(--color-text-secondary)]">{children}</blockquote>,
                 strong: ({ children }) => <strong className="font-semibold text-[var(--color-text-primary)]">{children}</strong>,
                 hr: () => <hr className="my-4 border-[var(--color-border-secondary)]" />,
-                a: ({ href, children }) => <a href={href} onClick={(e) => { e.preventDefault(); href && window.open(href, '_blank', 'noopener,noreferrer') }} className="text-[#1d4ed8] underline">{children}</a>,
+                a: ({ href, children }) => <a href={href} onClick={(e) => { e.preventDefault(); href && void openExternal(href) }} className="text-[#1d4ed8] underline">{children}</a>,
                 code: ({ children, className }) => {
                   const lang = /language-(\w+)/.exec(className ?? '')?.[1] ?? ''
                   const isBlock = String(children).includes('\n') || !!lang

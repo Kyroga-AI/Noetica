@@ -663,6 +663,20 @@ async fn write_local_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&p, content).map_err(|e| e.to_string())
 }
 
+/// Open a link in the system default browser. `window.open` is a silent no-op inside
+/// the webview (no tabs, no window-creation capability), so chat links route here.
+/// Scheme-gated: chat content is untrusted, so only web/mail links — never file:// or
+/// custom schemes that could launch arbitrary handlers.
+#[tauri::command]
+async fn open_external(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    let allowed = url.starts_with("https://") || url.starts_with("http://") || url.starts_with("mailto:");
+    if !allowed {
+        let shown: String = url.chars().take(32).collect();
+        return Err(format!("blocked scheme — only http(s)/mailto links can be opened externally (got: {shown})"));
+    }
+    app.shell().open(url, None).map_err(|e| e.to_string())
+}
+
 fn main() {
     // Cmd+Shift+Space — summon/hide Noetica from anywhere on the system
     let global_shortcut = Shortcut::new(
@@ -961,6 +975,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             noetica_desktop_status,
+            open_external,
             get_agent_machine_url,
             probe_agent_machine,
             speak_text,

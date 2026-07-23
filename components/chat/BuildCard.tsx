@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { isTauri } from '@/lib/tauri/bridge'
 import type { BuildSpec } from '@/lib/types/message'
+import { openExternal } from '@/lib/tauri/openExternal'
 
 function amBase(): string { return isTauri() ? 'http://127.0.0.1:8080' : '' }
 
@@ -96,7 +97,7 @@ export function BuildCard({ spec }: { spec: BuildSpec }) {
             <div className="mt-3">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">{result.devUrl}</span>
-                <button onClick={() => window.open(result.devUrl, '_blank')} className="rounded-lg bg-[#1d4ed8] px-2.5 py-1 text-[11px] font-semibold text-white">Open ↗</button>
+                <button onClick={() => { if (result.devUrl) void openExternal(result.devUrl) }} className="rounded-lg bg-[#1d4ed8] px-2.5 py-1 text-[11px] font-semibold text-white">Open ↗</button>
               </div>
               <iframe src={result.devUrl} title="preview" className="mt-2 h-72 w-full rounded-xl border border-[var(--color-border-tertiary)] bg-white" />
             </div>

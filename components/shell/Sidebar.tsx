@@ -10,6 +10,7 @@ import { UpgradeModal } from '@/components/shell/UpgradeModal'
 import { ChangelogModal } from '@/components/shell/ChangelogModal'
 import { COMMAND_CENTERS, surfacesFor, type CommandCenterId, type NavSurface } from '@/components/shell/commandCenters'
 import { versionLabel } from '@/lib/version'
+import { openExternal } from '@/lib/tauri/openExternal'
 
 type SidebarProps = {
   activeSurface: ActiveSurface
@@ -654,7 +655,7 @@ export function Sidebar({
                   { label: 'Community forum', desc: 'Ask questions and share feedback', url: 'https://github.com/SocioProphet/Noetica/discussions' },
                   { label: 'Keyboard shortcuts', desc: 'View all shortcuts — press ⌘,', url: undefined as string | undefined },
                 ].map((link) => (
-                  <button key={link.label} onClick={() => { if (link.label === 'Keyboard shortcuts') { setHelpOpen(true) } else if (link.url) { window.open(link.url, '_blank', 'noopener') } closeMenu() }}
+                  <button key={link.label} onClick={() => { if (link.label === 'Keyboard shortcuts') { setHelpOpen(true) } else if (link.url) { void openExternal(link.url) } closeMenu() }}
                     className="flex w-full flex-col items-start px-3 py-1.5 text-left hover:bg-[var(--color-background-secondary)] transition">
                     <span className="text-[12px] text-[var(--color-text-primary)]">{link.label}</span>
                     <span className="text-[11px] text-[var(--color-text-tertiary)]">{link.desc}</span>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useConnectorAuth } from '@/lib/auth/context'
+import { openExternal } from '@/lib/tauri/openExternal'
 
 type GmailThread = {
   id: string
@@ -151,7 +152,7 @@ export function MailPanel() {
         {/* Quick compose */}
         <button
           disabled={!connectedAddress}
-          onClick={() => { if (connectedAddress) window.open('https://mail.google.com/mail/?view=cm&fs=1', '_blank', 'noopener,noreferrer') }}
+          onClick={() => { if (connectedAddress) void openExternal('https://mail.google.com/mail/?view=cm&fs=1') }}
           title={connectedAddress ? 'Compose in Gmail' : 'Connect a mail account first'}
           className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border py-1.5 text-xs font-semibold transition ${connectedAddress ? 'border-[#bfdbfe] bg-[var(--color-background-primary)] text-[#1d4ed8] hover:bg-[#eff6ff]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-tertiary)] opacity-50 cursor-not-allowed'}`}>
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>

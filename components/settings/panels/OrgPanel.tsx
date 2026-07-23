@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useIdentity, initialOf } from '@/lib/useIdentity'
 import { amUrl } from '@/lib/tauri/bridge'
+import { openExternal } from '@/lib/tauri/openExternal'
 
 function isValidEmail(v: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) }
 
@@ -142,7 +143,7 @@ export function OrgPanel() {
     const body = encodeURIComponent(
       `Hi,\n\nI'd like to invite you to collaborate with me on Noetica.\n\n${reachOut}Best,\n${me.displayName}`
     )
-    window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank')
+    void openExternal(`mailto:${email}?subject=${subject}&body=${body}`)
     setInviteSent(true)
     setTimeout(() => { setInviteSent(false); setInviteEmail(''); setInviteOpen(false) }, 2000)
   }

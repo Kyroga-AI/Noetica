@@ -19,6 +19,7 @@ import { useRevealedContent, APP_OPEN_TS } from '@/lib/chat/useRevealedContent'
 import { cleanSources } from '@/lib/chat/sources'
 import { providerTier, TIER_META } from '@/lib/chat/sovereignty'
 import { amUrl } from '@/lib/tauri/bridge'
+import { openExternal } from '@/lib/tauri/openExternal'
 
 // A single quiet file glyph (SVG, not emoji) for attachment chips.
 function FileGlyph({ className = '' }: { className?: string }) {
@@ -239,7 +240,7 @@ function MarkdownContent({ content, compact = false }: { content: string; compac
           return (
             <a
               href={href}
-              onClick={(e) => { e.preventDefault(); if (href) window.open(href, '_blank', 'noopener,noreferrer') }}
+              onClick={(e) => { e.preventDefault(); if (href) void openExternal(href) }}
               className="text-[#1d4ed8] underline decoration-[#bfdbfe] hover:decoration-[#1d4ed8] transition-colors"
             >
               {children}
