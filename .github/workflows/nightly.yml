@@ -43,6 +43,13 @@ jobs:
         if: steps.gate.outputs.skip != 'true'
         run: |
           BASE=$(node -p "require('./package.json').version")
+          # VERSION IDENTITY GUARD: a released number is immutable. If v$BASE already exists
+          # as a published (non-prerelease) release, someone forgot the bump — fail loudly
+          # instead of re-wearing a spent number (the 0.4.23×7 incident, 2026-07-20..23).
+          if gh release view "v${BASE}" --json isPrerelease -q 'if .isPrerelease then "pre" else "stable" end' 2>/dev/null | grep -q stable; then
+            echo "::error::version ${BASE} is already released — bump package.json/tauri.conf.json before cutting nightlies"
+            exit 1
+          fi
           TAG="v${BASE}-nightly.$(date -u +%Y%m%d)"
           # If today's nightly tag already exists (manual re-run), append a counter.
           if git rev-parse "$TAG" >/dev/null 2>&1; then

@@ -155,6 +155,15 @@ jobs:
           echo "APPLE_PASSWORD=${{ secrets.APPLE_PASSWORD }}" >> "$GITHUB_ENV"
           echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}" >> "$GITHUB_ENV"
 
+      - name: Stamp build identity (version = tag)
+        shell: bash
+        run: |
+          # Every artifact carries its EXACT identity (0.4.24-nightly.20260723, not a bare
+          # 0.4.24 six binaries share) — About box, /api/status, and bug reports all agree.
+          V="${GITHUB_REF_NAME#v}"
+          node -e "const fs=require('fs');for(const f of ['package.json','src-tauri/tauri.conf.json']){const j=JSON.parse(fs.readFileSync(f));j.version='$V';fs.writeFileSync(f,JSON.stringify(j,null,2))}"
+          echo "stamped $V"
+
       - name: Build and publish release (universal)
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
@@ -295,6 +304,15 @@ jobs:
       - name: Inject sidecar externalBin into tauri.conf.json
         run: node scripts/inject-am-sidecar-config.mjs
 
+      - name: Stamp build identity (version = tag)
+        shell: bash
+        run: |
+          # Every artifact carries its EXACT identity (0.4.24-nightly.20260723, not a bare
+          # 0.4.24 six binaries share) — About box, /api/status, and bug reports all agree.
+          V="${GITHUB_REF_NAME#v}"
+          node -e "const fs=require('fs');for(const f of ['package.json','src-tauri/tauri.conf.json']){const j=JSON.parse(fs.readFileSync(f));j.version='$V';fs.writeFileSync(f,JSON.stringify(j,null,2))}"
+          echo "stamped $V"
+
       - name: Build Tauri (deb + rpm)
         env:
           NOETICA_STATIC_EXPORT: "1"
@@ -375,6 +393,15 @@ jobs:
 
       - name: Inject sidecar externalBin into tauri.conf.json
         run: node scripts/inject-am-sidecar-config.mjs
+
+      - name: Stamp build identity (version = tag)
+        shell: bash
+        run: |
+          # Every artifact carries its EXACT identity (0.4.24-nightly.20260723, not a bare
+          # 0.4.24 six binaries share) — About box, /api/status, and bug reports all agree.
+          V="${GITHUB_REF_NAME#v}"
+          node -e "const fs=require('fs');for(const f of ['package.json','src-tauri/tauri.conf.json']){const j=JSON.parse(fs.readFileSync(f));j.version='$V';fs.writeFileSync(f,JSON.stringify(j,null,2))}"
+          echo "stamped $V"
 
       - name: Build Tauri (nsis)
         env:
