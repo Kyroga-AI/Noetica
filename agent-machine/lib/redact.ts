@@ -13,7 +13,8 @@ export interface RedactionResult { redacted: string; mapping: Record<string, str
 
 // Order matters: most-specific first (a token shouldn't be partially eaten by a broader pattern).
 const PATTERNS: Array<{ kind: string; re: RegExp }> = [
-  { kind: 'APIKEY', re: /\b(?:sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{30,})\b/g },
+  { kind: 'PRIVKEY', re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g },
+  { kind: 'APIKEY', re: /\b(?:sk-[A-Za-z0-9_-]{16,}|rk_(?:live|test)_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,}|hf_[A-Za-z0-9]{30,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{30,})\b/g },
   { kind: 'JWT', re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g },
   { kind: 'EMAIL', re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g },
   { kind: 'SSN', re: /\b\d{3}-\d{2}-\d{4}\b/g },

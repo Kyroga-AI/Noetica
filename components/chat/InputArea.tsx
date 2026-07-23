@@ -12,6 +12,7 @@ import { AudioOverviewPlayer } from '@/components/chat/AudioOverviewPlayer'
 import { visibleModels, providersWithKeys } from '@/config/models'
 import { useSettings } from '@/lib/settings/context'
 import type { RetrievalScope } from '@/lib/projects/types'
+import { detectSecrets, redactSecrets } from '@/lib/security/secretPatterns'
 
 export type WorkspaceMode = 'Chat' | 'Collaborate' | 'Code' | 'Benchmark'
 
@@ -107,6 +108,10 @@ export function InputArea({
   const [showSystemPrompt, setShowSystemPrompt] = useState(false)
   const [retrievalScope, setRetrievalScope] = useState<RetrievalScope>('project')
   const [webMode, setWebMode] = useState(false)
+  // Secret hygiene: a pasted API key would otherwise flow into session persistence,
+  // memory extraction, and (worst case) an open-chat publish. Detection on send shows
+  // this banner; redact is the default action, send-anyway the explicit override.
+  const [secretWarning, setSecretWarning] = useState<{ kinds: string[] } | null>(null)
   const [showScopePicker, setShowScopePicker] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -242,9 +247,24 @@ export function InputArea({
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
   }
 
-  async function submit() {
-    const trimmed = content.trim()
+  async function submit(opts?: { allowSecrets?: boolean; redact?: boolean }) {
+    let trimmed = content.trim()
     if ((!trimmed && attachments.length === 0 && ingestedDocs.length === 0) || sending || disabled) return
+    // Secret hygiene gate — detect once per send attempt, before anything is persisted.
+    const hits = detectSecrets(trimmed)
+    if (hits.length > 0) {
+      if (opts?.redact) {
+        trimmed = redactSecrets(trimmed, hits)
+        setSecretWarning(null)
+      } else if (!opts?.allowSecrets) {
+        setSecretWarning({ kinds: Array.from(new Set(hits.map((h) => h.kind))) })
+        return
+      } else {
+        setSecretWarning(null)
+      }
+    } else if (secretWarning) {
+      setSecretWarning(null)
+    }
     setSending(true)
     const toSend = [...attachments]
     const toolsToSend = [...selectedTools]
@@ -347,6 +367,31 @@ export function InputArea({
         {attachError && (
           <div className="mx-3 mt-2 rounded-lg border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-xs text-[#dc2626]">
             {attachError}
+          </div>
+        )}
+
+        {/* Secret hygiene: pasted credential detected — redact by default, send-anyway explicit. */}
+        {secretWarning && (
+          <div className="mx-3 mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-[#fde68a] bg-[var(--color-attention-bg,#fffbeb)] px-2.5 py-1.5 text-xs text-[#854d0e]">
+            <span>
+              This message looks like it contains a <b>{secretWarning.kinds.join(', ')}</b> credential.
+              Keys pasted into chat get saved with the conversation — better to keep them in Settings → Models.
+            </span>
+            <span className="ml-auto flex gap-2">
+              <button
+                onClick={() => void submit({ redact: true })}
+                className="rounded-md bg-[#854d0e] px-2 py-0.5 font-semibold text-white"
+              >
+                Redact &amp; send
+              </button>
+              <button
+                onClick={() => void submit({ allowSecrets: true })}
+                className="rounded-md border border-[#fde68a] px-2 py-0.5"
+              >
+                Send anyway
+              </button>
+              <button onClick={() => setSecretWarning(null)} className="px-1 text-[#a16207]" title="Dismiss">✕</button>
+            </span>
           </div>
         )}
 

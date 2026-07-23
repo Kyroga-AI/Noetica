@@ -22,6 +22,7 @@ interface FederationStatus {
 function FederationSection() {
   const [status, setStatus] = useState<FederationStatus | null>(null)
   const [keyInput, setKeyInput] = useState('')
+  const [keyRevealed, setKeyRevealed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
@@ -79,11 +80,19 @@ function FederationSection() {
             </p>
             <div className="flex gap-2">
               <input
+                type={keyRevealed ? 'text' : 'password'}
                 value={keyInput}
                 onChange={(e) => setKeyInput(e.target.value)}
                 placeholder="Org federation key (64 hex characters)"
                 className="min-w-0 flex-1 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-border-primary)]"
               />
+              <button
+                type="button"
+                onClick={() => setKeyRevealed((r) => !r)}
+                className="rounded-xl border border-[var(--color-border-tertiary)] px-3 py-2 text-[11px] text-[var(--color-text-secondary)]"
+              >
+                {keyRevealed ? 'Hide' : 'Show'}
+              </button>
               <button
                 onClick={() => void join()}
                 disabled={busy || !/^[0-9a-f]{64}$/i.test(keyInput.trim())}
